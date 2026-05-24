@@ -29,15 +29,17 @@ def supabase_get(endpoint, params=None):
         return []
     return resp.json()
 
+@app.get("/")
+def root():
+    return {"message": "RedditRecs API is running", "endpoints": ["/rankings", "/product/{product_id}", "/search"]}
+
 @app.get("/rankings")
 def get_rankings(limit: int = 20):
-    # Get rankings joined with products
     rankings = supabase_get("rankings", params={"order": "rank.asc", "limit": limit})
     if not rankings:
         return {"rankings": []}
     
     product_ids = [r["product_id"] for r in rankings]
-    # Fetch all products at once
     products = supabase_get("products", params={"id": f"in.({','.join(product_ids)})"})
     product_map = {p["id"]: p for p in products}
     
@@ -54,6 +56,25 @@ def product_details(product_id: str):
     reviews = supabase_get("reviews", params={"product_id": f"eq.{product_id}", "order": "created_at.desc", "limit": 10})
     return {"product": product[0], "reviews": reviews}
 
+@app.get("/search")
+def search_products(q: str = Query(..., min_length=2)):
+    url = f"{SUPABASE_URL}/rest/v1/products"
+    params = {
+        "or": f"(brand.ilike.*{q}*,model_name.ilike.*{q}*)",
+        "select": "id,brand,model_name"
+    }
+    results = supabase_get("products", params=params)
+    
+    if results:
+        product_ids = [p["id"] for p in results]
+        rankings = supabase_get("rankings", params={"product_id": f"in.({','.join(product_ids)})"})
+        rank_map = {r["product_id"]: r for r in rankings}
+        for p in results:
+            p["ranking"] = rank_map.get(p["id"], {})
+    
+    return {"query": q, "results": results}
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
