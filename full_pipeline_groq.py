@@ -1,6 +1,7 @@
 import requests
 import json
 import os
+import time
 from dotenv import load_dotenv
 from groq import Groq
 
@@ -16,23 +17,30 @@ if not GROQ_API_KEY:
 client = Groq(api_key=GROQ_API_KEY)
 
 def search_reddit(query, limit=20):
-    """Search Reddit using public JSON endpoint."""
+    """Search Reddit using public JSON endpoint with proper User-Agent."""
     url = "https://www.reddit.com/r/all/search.json"
     params = {"q": query, "sort": "relevance", "t": "year", "limit": limit}
-    headers = {"User-Agent": "RedditRecs/1.0"}
-    resp = requests.get(url, params=params, headers=headers)
-    if resp.status_code != 200:
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 RedditRecs/1.0"
+    }
+    try:
+        resp = requests.get(url, params=params, headers=headers, timeout=30)
+        if resp.status_code != 200:
+            print(f"Reddit API returned {resp.status_code} for query '{query}'")
+            return []
+        data = resp.json()
+        posts = []
+        for child in data["data"]["children"]:
+            post = child["data"]
+            posts.append({
+                "title": post["title"],
+                "selftext": post["selftext"][:800],
+                "score": post["score"]
+            })
+        return posts
+    except Exception as e:
+        print(f"Error searching Reddit: {e}")
         return []
-    data = resp.json()
-    posts = []
-    for child in data["data"]["children"]:
-        post = child["data"]
-        posts.append({
-            "title": post["title"],
-            "selftext": post["selftext"][:800],
-            "score": post["score"]
-        })
-    return posts
 
 def extract_reviews(text):
     """
@@ -77,12 +85,12 @@ def extract_reviews(text):
 def run_pipeline():
     """Main pipeline: search Reddit, extract reviews, save to JSON."""
     queries = [
-    "best air purifier",
-    "air purifier recommendation",
-    "best gaming mouse",
-    "mechanical keyboard recommendation",
-    "noise cancelling headphones review"
-]
+        "best air purifier",
+        "air purifier recommendation",
+        "best gaming mouse",
+        "mechanical keyboard recommendation",
+        "noise cancelling headphones review"
+    ]
     all_reviews = []
     
     for q in queries:
@@ -96,6 +104,7 @@ def run_pipeline():
                 rev["source_query"] = q
                 all_reviews.append(rev)
             print(f"   Post {i+1}: {len(reviews)} reviews")
+        time.sleep(1)  # Small delay between queries to be gentle to Reddit
     
     print(f"\n[OK] Total reviews collected: {len(all_reviews)}")
     with open("reviews_output.json", "w", encoding="utf-8") as f:
