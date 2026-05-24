@@ -1,0 +1,106 @@
+import requests
+import json
+import os
+from dotenv import load_dotenv
+from groq import Groq
+
+# Load environment variables from .env file
+load_dotenv()
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+
+if not GROQ_API_KEY:
+    print("ERROR: GROQ_API_KEY not found in .env file")
+    exit(1)
+
+# Initialize Groq client
+client = Groq(api_key=GROQ_API_KEY)
+
+def search_reddit(query, limit=20):
+    """Search Reddit using public JSON endpoint."""
+    url = "https://www.reddit.com/r/all/search.json"
+    params = {"q": query, "sort": "relevance", "t": "year", "limit": limit}
+    headers = {"User-Agent": "RedditRecs/1.0"}
+    resp = requests.get(url, params=params, headers=headers)
+    if resp.status_code != 200:
+        return []
+    data = resp.json()
+    posts = []
+    for child in data["data"]["children"]:
+        post = child["data"]
+        posts.append({
+            "title": post["title"],
+            "selftext": post["selftext"][:800],
+            "score": post["score"]
+        })
+    return posts
+
+def extract_reviews(text):
+    """
+    Extract product reviews from Reddit text using Groq (Llama 3.3).
+    Returns a list of dicts with keys: sentiment, brand, product_name, verbatim.
+    """
+    prompt = f"""
+    Extract product reviews from this Reddit text. 
+    Return ONLY a single JSON array. Example: [{{"sentiment": "positive", "brand": "Dyson", "product_name": "HP07", "verbatim": "..."}}]
+    If no product review, return [].
+    Do not add any text before or after the JSON array.
+    
+    Text: {text[:2000]}
+    """
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.0,           # Low temp for consistent output
+            max_tokens=500
+        )
+        output = response.choices[0].message.content.strip()
+        # Remove markdown code blocks
+        output = output.replace("```json", "").replace("```", "").strip()
+        # Find the first '[' and last ']' to extract just the JSON array
+        start = output.find('[')
+        end = output.rfind(']') + 1
+        if start != -1 and end != 0:
+            output = output[start:end]
+        reviews = json.loads(output)
+        # Ensure it's a list (in case the model returns a single object)
+        if isinstance(reviews, dict):
+            reviews = [reviews]
+        return reviews
+    except json.JSONDecodeError as e:
+        print(f"JSON decode error: {e}\nRaw output: {output[:200]}")
+        return []
+    except Exception as e:
+        print(f"Extraction error: {e}")
+        return []
+
+def run_pipeline():
+    """Main pipeline: search Reddit, extract reviews, save to JSON."""
+    queries = [
+    "best air purifier",
+    "air purifier recommendation",
+    "best gaming mouse",
+    "mechanical keyboard recommendation",
+    "noise cancelling headphones review"
+]
+    all_reviews = []
+    
+    for q in queries:
+        print(f"\n[SEARCH] Searching: {q}")
+        posts = search_reddit(q, limit=10)
+        print(f"   Found {len(posts)} posts")
+        for i, post in enumerate(posts):
+            full_text = f"Title: {post['title']}\nBody: {post['selftext']}"
+            reviews = extract_reviews(full_text)
+            for rev in reviews:
+                rev["source_query"] = q
+                all_reviews.append(rev)
+            print(f"   Post {i+1}: {len(reviews)} reviews")
+    
+    print(f"\n[OK] Total reviews collected: {len(all_reviews)}")
+    with open("reviews_output.json", "w", encoding="utf-8") as f:
+        json.dump(all_reviews, f, indent=2, ensure_ascii=False)
+    print("[FILE] Saved to reviews_output.json")
+
+if __name__ == "__main__":
+    run_pipeline()
