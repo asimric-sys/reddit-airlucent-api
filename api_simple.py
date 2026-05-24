@@ -1,16 +1,23 @@
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 import requests
 import os
+import logging
 from dotenv import load_dotenv
 
+# Load environment variables
 load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
+# Configure logging (so we see requests in Railway logs)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("uvicorn")
+
 app = FastAPI()
 
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -18,6 +25,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Request logging middleware – logs every incoming request
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    logger.info(f"Request: {request.method} {request.url.path}")
+    response = await call_next(request)
+    return response
+
+# Helper to call Supabase REST API
 def supabase_get(endpoint, params=None):
     url = f"{SUPABASE_URL}/rest/v1/{endpoint}"
     headers = {
@@ -26,13 +41,16 @@ def supabase_get(endpoint, params=None):
     }
     resp = requests.get(url, headers=headers, params=params)
     if resp.status_code != 200:
+        logger.warning(f"Supabase error {resp.status_code} for {endpoint}: {resp.text}")
         return []
     return resp.json()
 
+# Root endpoint – used by Railway health check
 @app.get("/")
 def root():
     return {"message": "RedditRecs API is running", "endpoints": ["/rankings", "/product/{product_id}", "/search"]}
 
+# Rankings endpoint
 @app.get("/rankings")
 def get_rankings(limit: int = 20):
     rankings = supabase_get("rankings", params={"order": "rank.asc", "limit": limit})
@@ -48,6 +66,7 @@ def get_rankings(limit: int = 20):
     
     return {"rankings": rankings}
 
+# Product details endpoint
 @app.get("/product/{product_id}")
 def product_details(product_id: str):
     product = supabase_get("products", params={"id": f"eq.{product_id}"})
@@ -56,9 +75,9 @@ def product_details(product_id: str):
     reviews = supabase_get("reviews", params={"product_id": f"eq.{product_id}", "order": "created_at.desc", "limit": 10})
     return {"product": product[0], "reviews": reviews}
 
+# Search endpoint
 @app.get("/search")
 def search_products(q: str = Query(..., min_length=2)):
-    url = f"{SUPABASE_URL}/rest/v1/products"
     params = {
         "or": f"(brand.ilike.*{q}*,model_name.ilike.*{q}*)",
         "select": "id,brand,model_name"
