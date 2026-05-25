@@ -16,10 +16,9 @@ if not GROQ_API_KEY:
 # Initialize Groq client
 client = Groq(api_key=GROQ_API_KEY)
 
-VALID_CATEGORIES = [
+PREDEFINED_CATEGORIES = [
     "air-purifier", "humidifier", "air-conditioner", "robot-vacuum",
-    "smart-doorbell", "smart-thermostat", "heating-cooling",
-    "air-quality", "other"
+    "smart-doorbell", "smart-thermostat", "heating-cooling", "air-quality"
 ]
 
 
@@ -58,7 +57,7 @@ def extract_reviews(text, subreddit=""):
     category, verbatim.
     """
     subreddit_context = f" The post is from r/{subreddit}." if subreddit else ""
-    category_options = ", ".join(f'"{c}"' for c in VALID_CATEGORIES)
+    predefined = ", ".join(f'"{c}"' for c in PREDEFINED_CATEGORIES)
 
     prompt = f"""
     Extract product reviews from this Reddit text.{subreddit_context}
@@ -73,9 +72,10 @@ def extract_reviews(text, subreddit=""):
     - Never leave product_name empty.
 
     Rules for category:
-    - Choose the single best category from: {category_options}.
-    - Use the subreddit name and post content together to infer the category.
-    - If you cannot determine a specific category, use "other".
+    - Prefer one of the predefined categories if it fits well: {predefined}.
+    - If NONE of the predefined categories match, INVENT a new, short, descriptive category name (lowercase, use hyphens).
+      Examples of invented categories: "dehumidifier", "air-quality-monitor", "portable-fan", "smart-plug".
+    - Default to "other" ONLY if you cannot determine any meaningful category at all.
     - Never leave category empty.
 
     Text: {text[:2000]}
@@ -105,9 +105,9 @@ def extract_reviews(text, subreddit=""):
             product_name = (rev.get("product_name") or "").strip()
             if brand and not product_name:
                 rev["product_name"] = f"{brand} Air Purifier"
-            # Safety net: ensure category is always a valid value
+            # Safety net: ensure category is never empty; default to "other"
             category = (rev.get("category") or "").strip().lower()
-            if category not in VALID_CATEGORIES:
+            if not category:
                 category = "other"
             rev["category"] = category
         return reviews
@@ -148,7 +148,11 @@ def run_pipeline():
         "smart air purifier wifi",
         "robot vacuum for pet hair",
         "smart thermostat energy saving",
-        "humidifier for dry air"
+        "humidifier for dry air",
+        # New product types
+        "dehumidifier review", "best dehumidifier",
+        "air conditioner window unit review",
+        "smart plug review", "best smart plug"
     ]
     all_reviews = []
 
