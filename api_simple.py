@@ -105,7 +105,10 @@ def root():
         "version": "2.0.0",
         "endpoints": [
             "/rankings",
+            "/rankings?limit=10&offset=20",
             "/rankings?category=air-purifier",
+            "/rankings?subreddit=BuyItForLife",
+            "/rankings?category=air-purifier&subreddit=allergies",
             "/brands",
             "/brands?category=air-purifier",
             "/categories",
@@ -131,38 +134,75 @@ def list_routes():
     return {"routes": routes}
 
 # ---------------------------------------------------------------------------
-# /rankings  -- optionally filtered by category
+# /rankings  -- optionally filtered by category and/or subreddit
 # ---------------------------------------------------------------------------
 @app.get("/rankings")
 def get_rankings(
     limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0, description="Pagination offset"),
     category: str = Query(None, description="Filter by product category slug"),
+    subreddit: str = Query(None, description="Filter by source subreddit (e.g. BuyItForLife)"),
 ):
-    """Return ranked products, optionally filtered by category."""
-    ranking_params = {"order": "rank.asc", "limit": limit}
+    """Return ranked products, optionally filtered by category and/or subreddit."""
+    ranking_params = {"order": "rank.asc", "limit": limit, "offset": offset}
+
+    cat_ids: set | None = None
 
     if category:
-        # Fetch products in the requested category first, then filter rankings
         products_in_cat = supabase_get(
             "products",
             params={"category": f"eq.{category}", "select": "id,brand,model_name,category"},
         )
         if not products_in_cat:
             logger.info(f"/rankings: no products found for category='{category}'")
-            return {"rankings": [], "category": category}
+            return {"rankings": [], "category": category, "subreddit": subreddit, "offset": offset}
+        cat_ids = {p["id"] for p in products_in_cat}
 
-        cat_ids = [p["id"] for p in products_in_cat]
-        ranking_params["product_id"] = f"in.({','.join(cat_ids)})"
-        product_map = {p["id"]: p for p in products_in_cat}
+    sub_ids: set | None = None
+    if subreddit:
+        reviews_in_sub = supabase_get(
+            "reviews",
+            params={"subreddit": f"eq.{subreddit}", "select": "product_id"},
+        )
+        if not reviews_in_sub:
+            logger.info(f"/rankings: no reviews found for subreddit='{subreddit}'")
+            return {"rankings": [], "category": category, "subreddit": subreddit, "offset": offset}
+        sub_ids = {r["product_id"] for r in reviews_in_sub if r.get("product_id")}
+
+    # --- Intersect filter sets when both are provided ---
+    if cat_ids is not None and sub_ids is not None:
+        eligible_ids = cat_ids & sub_ids
+    elif cat_ids is not None:
+        eligible_ids = cat_ids
+    elif sub_ids is not None:
+        eligible_ids = sub_ids
     else:
-        product_map = None  # will be populated below
+        eligible_ids = None  # no filter — return all
+
+    # --- Build product_map and constrain rankings query ---
+    if eligible_ids is not None:
+        if not eligible_ids:
+            logger.info("/rankings: intersection of category and subreddit filters is empty")
+            return {"rankings": [], "category": category, "subreddit": subreddit, "offset": offset}
+
+        id_list = list(eligible_ids)
+        ranking_params["product_id"] = f"in.({','.join(id_list)})"
+
+        # Pre-fetch product details for the eligible set
+        products = supabase_get(
+            "products",
+            params={"id": f"in.({','.join(id_list)})", "select": "id,brand,model_name,category"},
+        )
+        product_map = {p["id"]: p for p in products}
+    else:
+        product_map = None  # will be populated from ranking results below
 
     rankings = supabase_get("rankings", params=ranking_params)
     if not rankings:
-        return {"rankings": [], "category": category}
+        return {"rankings": [], "category": category, "subreddit": subreddit, "offset": offset}
 
     if product_map is None:
-        # No category filter -- fetch products for the returned ranking rows
+        # No filters active — fetch products for the returned ranking rows
         product_ids = [r["product_id"] for r in rankings]
         products = supabase_get("products", params={"id": f"in.({','.join(product_ids)})"})
         product_map = {p["id"]: p for p in products}
@@ -170,7 +210,8 @@ def get_rankings(
     for r in rankings:
         r["product"] = product_map.get(r["product_id"], {})
 
-    return {"rankings": rankings, "category": category}
+    return {"rankings": rankings, "category": category, "subreddit": subreddit, "offset": offset}
+
 
 # ---------------------------------------------------------------------------
 # /brands  -- aggregate sentiment statistics per brand
