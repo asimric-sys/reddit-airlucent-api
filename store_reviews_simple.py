@@ -21,37 +21,15 @@ headers = {
 VALID_SENTIMENTS = {"positive", "negative", "neutral"}
 
 
-def get_category(brand, model_name):
-    """Infer a category slug from keywords in the brand and model name.
-
-    Checks the combined text (lowercased) against a priority-ordered list of
-    keyword rules and returns the first matching category slug.  Falls back to
-    'uncategorized' when nothing matches.
-    """
-    combined = f"{brand} {model_name}".lower()
-
-    if "purifier" in combined:
-        return "air-purifier"
-    if "humidifier" in combined:
-        return "humidifier"
-    if "air conditioner" in combined or " ac " in combined or combined.endswith(" ac"):
-        return "air-conditioner"
-    if "robot vacuum" in combined or "robovac" in combined:
-        return "robot-vacuum"
-    if "doorbell" in combined:
-        return "smart-doorbell"
-    if "thermostat" in combined:
-        return "smart-thermostat"
-
-    return "uncategorized"
-
-
-def get_or_create_product(brand, model_name):
+def get_or_create_product(brand, model_name, suggested_category=None):
     """Return the product id for (brand, model_name), creating the row if needed.
 
-    When a new product is created its category is inferred automatically via
-    get_category() so it is immediately discoverable through the /categories
-    and /usecase/{case} endpoints.
+    When a new product is created its category is taken from suggested_category
+    (extracted by Groq).  "other" is mapped to "uncategorized" so the product
+    is still discoverable while clearly flagged as unclassified.
+
+    If the product already exists but has no category set, it is updated with
+    suggested_category so that existing rows are enriched over time.
 
     Returns None when the inputs are invalid or the Supabase call fails.
     """
@@ -63,13 +41,35 @@ def get_or_create_product(brand, model_name):
     model_name = model_name.strip()
 
     # Try to find an existing product first
-    url = f"{SUPABASE_URL}/rest/v1/products?brand=eq.{brand}&model_name=eq.{model_name}&select=id"
+    url = f"{SUPABASE_URL}/rest/v1/products?brand=eq.{brand}&model_name=eq.{model_name}&select=id,category"
     resp = requests.get(url, headers=headers)
     if resp.status_code == 200 and resp.json():
-        return resp.json()[0]["id"]
+        existing = resp.json()[0]
+        product_id = existing["id"]
+        existing_category = (existing.get("category") or "").strip()
 
-    # Product not found — create it with an auto-inferred category
-    category = get_category(brand, model_name)
+        # If the product has no category yet, update it with the suggested one
+        if not existing_category and suggested_category and suggested_category != "other":
+            patch_url = f"{SUPABASE_URL}/rest/v1/products?id=eq.{product_id}"
+            patch_resp = requests.patch(
+                patch_url,
+                headers=headers,
+                json={"category": suggested_category}
+            )
+            if patch_resp.status_code in (200, 204):
+                print(f"   [UPD]  Updated category for {brand} {model_name} → '{suggested_category}'")
+            else:
+                print(f"   [WARN] Failed to update category for {brand} {model_name}: {patch_resp.text}")
+
+        return product_id
+
+    # Product not found — create it with the LLM-suggested category
+    # Map "other" to "uncategorized" for new products
+    if suggested_category and suggested_category != "other":
+        category = suggested_category
+    else:
+        category = "uncategorized"
+
     insert_data = {"brand": brand, "model_name": model_name, "category": category}
     print(f"   [NEW]  Creating product: {brand} {model_name} → category='{category}'")
     url = f"{SUPABASE_URL}/rest/v1/products"
@@ -127,8 +127,12 @@ def store_reviews_from_json(json_file="reviews_output.json"):
 
         sentiment = normalise_sentiment(rev.get("sentiment"))
         source = rev.get("source_query", "")
+        subreddit = rev.get("subreddit", "")
 
-        product_id = get_or_create_product(brand, model)
+        # Use the category extracted by Groq; fall back to None if absent
+        suggested_category = (rev.get("category") or "").strip().lower() or None
+
+        product_id = get_or_create_product(brand, model, suggested_category=suggested_category)
         if not product_id:
             skipped_invalid += 1
             continue
@@ -139,6 +143,7 @@ def store_reviews_from_json(json_file="reviews_output.json"):
             "sentiment": sentiment,
             "verbatim": verbatim,
             "source_query": source,
+            "subreddit": subreddit,
         }
 
         url = f"{SUPABASE_URL}/rest/v1/reviews"
@@ -146,7 +151,8 @@ def store_reviews_from_json(json_file="reviews_output.json"):
 
         if resp.status_code == 201:
             stored += 1
-            print(f"[OK]   Stored:  {brand} {model} — {sentiment}")
+            category_label = suggested_category or "uncategorized"
+            print(f"[OK]   Stored: {brand} {model} — {sentiment} [{category_label}]")
         elif resp.status_code == 409:
             # Unique constraint violation: (product_id, verbatim) already exists
             skipped_duplicates += 1
