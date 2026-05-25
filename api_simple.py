@@ -50,6 +50,17 @@ def supabase_get(endpoint, params=None):
 def root():
     return {"message": "RedditRecs API is running", "endpoints": ["/rankings", "/product/{product_id}", "/search"]}
 
+# Debug endpoint: list all registered routes
+@app.get("/debug/routes")
+def list_routes():
+    routes = []
+    for route in app.routes:
+        routes.append({
+            "path": route.path,
+            "methods": list(route.methods) if hasattr(route, "methods") else []
+        })
+    return {"routes": routes}
+
 # Rankings endpoint
 @app.get("/rankings")
 def get_rankings(limit: int = 20):
