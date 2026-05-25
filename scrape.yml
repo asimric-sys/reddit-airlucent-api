@@ -2,12 +2,14 @@ name: Daily Reddit Scraper
 
 on:
   schedule:
-    - cron: '0 2 * * *'  # Runs at 2 AM UTC daily
-  workflow_dispatch:      # Allows manual trigger
+    - cron: '0 * * * *'
+  workflow_dispatch:
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -15,7 +17,9 @@ jobs:
         with:
           python-version: '3.13'
       - name: Install dependencies
-        run: pip install requests groq python-dotenv ddgs
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
       - name: Run scraper
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
