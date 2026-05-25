@@ -15,7 +15,7 @@ jobs:
         with:
           python-version: '3.13'
       - name: Install dependencies
-        run: pip install requests groq python-dotenv
+        run: pip install requests groq python-dotenv ddgs
       - name: Run scraper
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}

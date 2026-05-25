@@ -3,8 +3,10 @@ import json
 import os
 import random
 import time
+from urllib.parse import urlparse
 from dotenv import load_dotenv
 from groq import Groq
+from ddgs import DDGS
 
 # Load environment variables from .env file
 load_dotenv()
@@ -22,6 +24,49 @@ client = Groq(api_key=GROQ_API_KEY)
 PREDEFINED_CATEGORIES = [
     "air-purifier", "humidifier", "air-conditioner", "robot-vacuum",
     "smart-doorbell", "smart-thermostat", "heating-cooling", "air-quality"
+]
+
+# ---------------------------------------------------------------------------
+# Hardcoded target products (brand, model, category)
+# ---------------------------------------------------------------------------
+PRODUCTS = [
+    # Air purifiers
+    ("Coway", "Airmega 400", "air-purifier"),
+    ("Coway", "AP-1512HH", "air-purifier"),
+    ("Levoit", "Core 300", "air-purifier"),
+    ("Levoit", "Core 400S", "air-purifier"),
+    ("Winix", "5500-2", "air-purifier"),
+    ("Winix", "AM90", "air-purifier"),
+    ("Blueair", "Blue Pure 211+", "air-purifier"),
+    ("Blueair", "HealthProtect 7470i", "air-purifier"),
+    ("Dyson", "HP07", "air-purifier"),
+    ("Dyson", "HP09", "air-purifier"),
+    ("Honeywell", "HPA300", "air-purifier"),
+    ("IQAir", "HealthPro Plus", "air-purifier"),
+    ("Austin Air", "HealthMate", "air-purifier"),
+    ("Alen", "BreatheSmart 75i", "air-purifier"),
+    ("Medify", "MA-40", "air-purifier"),
+    ("Shark", "HE402", "air-purifier"),
+    ("GermGuardian", "AC4825", "air-purifier"),
+    ("PuroAir", "HEPA 14", "air-purifier"),
+    ("Govee", "H7122", "air-purifier"),
+    ("Philips", "AC1215", "air-purifier"),
+    # Humidifiers
+    ("Levoit", "Classic 300S", "humidifier"),
+    ("Levoit", "OasisMist 450S", "humidifier"),
+    ("Dyson", "AM10", "humidifier"),
+    ("Honeywell", "HCM350W", "humidifier"),
+    ("Vicks", "V745A", "humidifier"),
+    ("TaoTronics", "TT-AH001", "humidifier"),
+    ("Pure Enrichment", "MistAire", "humidifier"),
+    ("Crane", "EE-5301", "humidifier"),
+    # Portable air conditioners
+    ("LG", "LP0821GSSM", "air-conditioner"),
+    ("Whynter", "ARC-14S", "air-conditioner"),
+    ("Black+Decker", "BPACT08WT", "air-conditioner"),
+    ("Midea", "MAP08R1CWT", "air-conditioner"),
+    ("Honeywell", "MO08CESWK", "air-conditioner"),
+    ("De'Longhi", "PACAN125HPEKC", "air-conditioner"),
 ]
 
 # Realistic User-Agent pool covering Windows, macOS, and Linux browsers
@@ -51,56 +96,28 @@ def get_random_user_agent():
     return random.choice(USER_AGENTS)
 
 
-def get_existing_product_names():
+def is_target_product(brand, product_name):
+    """Return True if (brand, product_name) matches any entry in PRODUCTS.
+
+    Matching is case-insensitive and checks whether the extracted product_name
+    contains the target model string (or vice-versa) to handle minor variations
+    like "Airmega 400S" still matching "Airmega 400".
     """
-    Fetch all products from Supabase and build product-specific search queries
-    in the form '{brand} {model_name} review'.
-
-    Returns an empty list if Supabase credentials are missing or the request
-    fails, so the pipeline can still fall back to generic queries.
-    """
-    if not SUPABASE_URL or not SUPABASE_KEY:
-        print("[WARN] SUPABASE_URL or SUPABASE_KEY not set — skipping product query fetch")
-        return []
-
-    headers = {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
-    }
-    url = f"{SUPABASE_URL}/rest/v1/products"
-    params = {"select": "brand,model_name"}
-
-    try:
-        resp = requests.get(url, headers=headers, params=params, timeout=15)
-        if resp.status_code != 200:
-            print(f"[WARN] Supabase returned {resp.status_code} when fetching products: {resp.text[:200]}")
-            return []
-
-        products = resp.json()
-        queries = []
-        seen = set()
-        for product in products:
-            brand = (product.get("brand") or "").strip()
-            model_name = (product.get("model_name") or "").strip()
-            if brand and model_name:
-                query = f"{brand} {model_name} review"
-                if query not in seen:
-                    seen.add(query)
-                    queries.append(query)
-
-        print(f"[DB] Fetched {len(queries)} product-specific queries from Supabase")
-        return queries
-
-    except Exception as e:
-        print(f"[WARN] Failed to fetch products from Supabase: {e}")
-        return []
+    brand_lower = (brand or "").strip().lower()
+    model_lower = (product_name or "").strip().lower()
+    for p_brand, p_model, _ in PRODUCTS:
+        if p_brand.lower() == brand_lower:
+            p_model_lower = p_model.lower()
+            if p_model_lower in model_lower or model_lower in p_model_lower:
+                return True
+    return False
 
 
-def search_reddit(query, limit=20):
-    """Search Reddit using the public JSON endpoint with a rotated User-Agent.
+def search_reddit_direct(query, limit=20):
+    """Try the public Reddit JSON search endpoint.
 
-    Returns an empty list on any non-200 response (including 403) so the
-    pipeline can continue with the next query without crashing.
+    Returns (posts, ok) where ok=False signals a 403/rate-limit so the caller
+    can switch to the DuckDuckGo fallback.
     """
     url = "https://www.reddit.com/r/all/search.json"
     params = {"q": query, "sort": "relevance", "t": "year", "limit": limit}
@@ -108,11 +125,11 @@ def search_reddit(query, limit=20):
     try:
         resp = requests.get(url, params=params, headers=headers, timeout=30)
         if resp.status_code == 403:
-            print(f"   [SKIP] Reddit returned 403 for query '{query}' — skipping")
-            return []
+            print(f"   [403] Reddit rate-limited for '{query}' — will use DDG fallback")
+            return [], False
         if resp.status_code != 200:
-            print(f"   [WARN] Reddit API returned {resp.status_code} for query '{query}'")
-            return []
+            print(f"   [WARN] Reddit returned {resp.status_code} for '{query}'")
+            return [], False
         data = resp.json()
         posts = []
         for child in data["data"]["children"]:
@@ -121,12 +138,109 @@ def search_reddit(query, limit=20):
                 "title": post["title"],
                 "selftext": post["selftext"][:800],
                 "score": post["score"],
-                "subreddit": post.get("subreddit", "")
+                "subreddit": post.get("subreddit", ""),
+                "url": post.get("url", ""),
             })
-        return posts
+        return posts, True
     except Exception as e:
-        print(f"   [ERROR] Error searching Reddit: {e}")
+        print(f"   [ERROR] Reddit direct search failed: {e}")
+        return [], False
+
+
+def fetch_reddit_post_json(post_url):
+    """Fetch a Reddit post's JSON representation from its URL.
+
+    Appends '.json' to the post URL and parses the response to extract the
+    post title, body, subreddit, score, and top-level comments.
+
+    Returns a post dict on success, or None on any error.
+    """
+    # Normalise: strip trailing slash, remove query string, append .json
+    parsed = urlparse(post_url)
+    clean_path = parsed.path.rstrip("/")
+    json_url = f"https://www.reddit.com{clean_path}.json"
+
+    headers = {"User-Agent": get_random_user_agent()}
+    try:
+        time.sleep(random.uniform(0.5, 1.5))
+        resp = requests.get(json_url, headers=headers, timeout=30)
+        if resp.status_code != 200:
+            print(f"      [WARN] Post JSON fetch returned {resp.status_code} for {json_url}")
+            return None
+        data = resp.json()
+        # Reddit returns a two-element list: [post_listing, comments_listing]
+        if not isinstance(data, list) or len(data) < 1:
+            return None
+        post_data = data[0]["data"]["children"][0]["data"]
+
+        # Collect top-level comment bodies to enrich the text
+        comments = []
+        if len(data) >= 2:
+            for child in data[1]["data"]["children"]:
+                body = child.get("data", {}).get("body", "")
+                if body and body != "[deleted]" and body != "[removed]":
+                    comments.append(body[:400])
+                if len(comments) >= 5:
+                    break
+
+        combined_body = post_data.get("selftext", "")[:800]
+        if comments:
+            combined_body += "\n\n" + "\n".join(comments)
+
+        return {
+            "title": post_data.get("title", ""),
+            "selftext": combined_body,
+            "score": post_data.get("score", 0),
+            "subreddit": post_data.get("subreddit", ""),
+            "url": post_url,
+        }
+    except Exception as e:
+        print(f"      [ERROR] Failed to fetch post JSON for {post_url}: {e}")
+        return None
+
+
+def search_reddit_via_duckduckgo(brand, model, limit=10):
+    """Use DuckDuckGo to find Reddit posts about a product, then fetch each
+    post's JSON directly.
+
+    Returns a list of post dicts in the same format as search_reddit_direct().
+    """
+    query = f'site:reddit.com "{brand} {model}" review'
+    print(f"   [DDG] Searching DuckDuckGo: {query}")
+    posts = []
+    try:
+        with DDGS() as ddgs:
+            results = list(ddgs.text(query, max_results=limit))
+    except Exception as e:
+        print(f"   [ERROR] DuckDuckGo search failed: {e}")
         return []
+
+    for result in results:
+        url = result.get("href", "")
+        # Only process actual Reddit post URLs (not subreddit index pages)
+        if "reddit.com/r/" not in url or "/comments/" not in url:
+            continue
+        print(f"      [DDG] Fetching post: {url}")
+        post = fetch_reddit_post_json(url)
+        if post:
+            posts.append(post)
+
+    print(f"   [DDG] Retrieved {len(posts)} posts via DuckDuckGo fallback")
+    return posts
+
+
+def search_reddit(brand, model, limit=20):
+    """Search for Reddit posts about a product.
+
+    Tries the direct Reddit JSON endpoint first.  If Reddit returns 403 (rate
+    limit) or any other failure, falls back to DuckDuckGo + direct post fetch.
+    """
+    query = f'"{brand} {model}" review'
+    posts, ok = search_reddit_direct(query, limit=limit)
+    if ok:
+        return posts
+    # Fallback: DuckDuckGo
+    return search_reddit_via_duckduckgo(brand, model, limit=limit)
 
 
 def extract_reviews(text, subreddit=""):
@@ -199,83 +313,48 @@ def extract_reviews(text, subreddit=""):
 
 
 def run_pipeline():
-    """Main pipeline: search Reddit, extract reviews, save to JSON.
+    """Main pipeline: search Reddit for each target product, extract reviews,
+    filter to target products only, and save to JSON.
 
-    Query strategy:
-    1. Fetch product-specific queries from Supabase (e.g. "Dyson HP07 review")
-       so we collect more reviews for products already in the database.
-    2. Fall back to a broad set of generic queries to discover new products.
-    Duplicate queries are deduplicated before the run starts.
+    For each product in PRODUCTS:
+    1. Try direct Reddit JSON search for '"{brand} {model}" review'.
+    2. On 403 / failure, fall back to DuckDuckGo + direct post JSON fetch.
+    3. Extract reviews with Groq and keep only those matching a target product.
     """
-    # --- Fallback generic queries (used when no DB products exist yet) ---
-    generic_queries = [
-        # General
-        "best air purifier", "air purifier review", "air purifier recommendation",
-        # Brands
-        "Coway air purifier", "Levoit air purifier", "Winix air purifier", "Blueair air purifier",
-        "Philips air purifier", "Honeywell air purifier", "Austin air purifier", "IQAir",
-        "Alen air purifier", "Medify air purifier", "Shark air purifier", "GermGuardian",
-        "Cuckoo air purifier", "PuroAir", "Govee air purifier", "CleanAirKits",
-        # Specific models
-        "Coway Airmega 400", "Levoit Core 300", "Winix 5500-2", "Blueair 211+",
-        "Philips 1000i", "Honeywell HPA300",
-        # Use cases
-        "air purifier for allergies", "air purifier for smoke", "air purifier for pets",
-        "air purifier for large room", "quiet air purifier",
-        # HVAC & air quality
-        "whole house air purifier", "HVAC air cleaner", "air quality monitor",
-        "humidifier review", "portable air conditioner review",
-        # Use-case specific queries
-        "air purifier smoke review",
-        "best air purifier for allergies",
-        "quiet air purifier bedroom",
-        "large room air purifier",
-        "air purifier energy efficient",
-        "smart air purifier wifi",
-        "robot vacuum for pet hair",
-        "smart thermostat energy saving",
-        "humidifier for dry air",
-        # New product types
-        "dehumidifier review", "best dehumidifier",
-        "air conditioner window unit review",
-        "smart plug review", "best smart plug",
-    ]
-
-    # --- Build the final deduplicated query list ---
-    # Product-specific queries come first so existing products get enriched
-    # before we branch out to generic discovery.
-    product_queries = get_existing_product_names()
-    seen = set()
-    queries = []
-    for q in product_queries + generic_queries:
-        if q not in seen:
-            seen.add(q)
-            queries.append(q)
-
-    print(f"[INFO] Running pipeline with {len(queries)} queries "
-          f"({len(product_queries)} product-specific, "
-          f"{len(queries) - len(product_queries)} generic)")
+    print(f"[INFO] Running pipeline for {len(PRODUCTS)} target products")
 
     all_reviews = []
 
-    for q in queries:
-        print(f"\n[SEARCH] Searching: {q}")
-        posts = search_reddit(q, limit=25)
-
+    for brand, model, category in PRODUCTS:
+        print(f"\n[PRODUCT] {brand} {model} ({category})")
+        posts = search_reddit(brand, model, limit=25)
         print(f"   Found {len(posts)} posts")
+
         for i, post in enumerate(posts):
             subreddit = post.get("subreddit", "")
             full_text = f"Title: {post['title']}\nBody: {post['selftext']}"
             reviews = extract_reviews(full_text, subreddit=subreddit)
+
+            kept = 0
             for rev in reviews:
-                rev["source_query"] = q
+                rev_brand = (rev.get("brand") or "").strip()
+                rev_model = (rev.get("product_name") or "").strip()
+                # Only keep reviews that match a known target product
+                if not is_target_product(rev_brand, rev_model):
+                    continue
+                rev["source_query"] = f"{brand} {model} review"
                 rev["subreddit"] = subreddit
                 all_reviews.append(rev)
-            print(f"   Post {i+1}: {len(reviews)} reviews")
+                kept += 1
 
-        # Random delay between queries to reduce the chance of rate-limiting
-        delay = random.uniform(2, 5)
-        print(f"   [DELAY] Waiting {delay:.1f}s before next query…")
+            print(f"   Post {i+1}: {len(reviews)} extracted, {kept} kept (target products)")
+
+            # Short delay between posts
+            time.sleep(random.uniform(1, 3))
+
+        # Longer delay between products to avoid rate-limiting
+        delay = random.uniform(3, 6)
+        print(f"   [DELAY] Waiting {delay:.1f}s before next product…")
         time.sleep(delay)
 
     print(f"\n[OK] Total reviews collected: {len(all_reviews)}")
