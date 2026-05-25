@@ -1,6 +1,7 @@
 import requests
 import json
 import os
+import random
 import time
 from dotenv import load_dotenv
 from groq import Groq
@@ -8,6 +9,8 @@ from groq import Groq
 # Load environment variables from .env file
 load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 if not GROQ_API_KEY:
     print("ERROR: GROQ_API_KEY not found in .env file")
@@ -21,18 +24,94 @@ PREDEFINED_CATEGORIES = [
     "smart-doorbell", "smart-thermostat", "heating-cooling", "air-quality"
 ]
 
+# Realistic User-Agent pool covering Windows, macOS, and Linux browsers
+USER_AGENTS = [
+    # Chrome on Windows
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 11.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    # Chrome on macOS
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    # Firefox on Windows
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0",
+    # Firefox on macOS
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14.4; rv:125.0) Gecko/20100101 Firefox/125.0",
+    # Safari on macOS
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15",
+    # Chrome on Linux
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:125.0) Gecko/20100101 Firefox/125.0",
+]
+
+
+def get_random_user_agent():
+    """Return a random User-Agent string from the pool."""
+    return random.choice(USER_AGENTS)
+
+
+def get_existing_product_names():
+    """
+    Fetch all products from Supabase and build product-specific search queries
+    in the form '{brand} {model_name} review'.
+
+    Returns an empty list if Supabase credentials are missing or the request
+    fails, so the pipeline can still fall back to generic queries.
+    """
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        print("[WARN] SUPABASE_URL or SUPABASE_KEY not set — skipping product query fetch")
+        return []
+
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+    }
+    url = f"{SUPABASE_URL}/rest/v1/products"
+    params = {"select": "brand,model_name"}
+
+    try:
+        resp = requests.get(url, headers=headers, params=params, timeout=15)
+        if resp.status_code != 200:
+            print(f"[WARN] Supabase returned {resp.status_code} when fetching products: {resp.text[:200]}")
+            return []
+
+        products = resp.json()
+        queries = []
+        seen = set()
+        for product in products:
+            brand = (product.get("brand") or "").strip()
+            model_name = (product.get("model_name") or "").strip()
+            if brand and model_name:
+                query = f"{brand} {model_name} review"
+                if query not in seen:
+                    seen.add(query)
+                    queries.append(query)
+
+        print(f"[DB] Fetched {len(queries)} product-specific queries from Supabase")
+        return queries
+
+    except Exception as e:
+        print(f"[WARN] Failed to fetch products from Supabase: {e}")
+        return []
+
 
 def search_reddit(query, limit=20):
-    """Search Reddit using public JSON endpoint with proper User-Agent."""
+    """Search Reddit using the public JSON endpoint with a rotated User-Agent.
+
+    Returns an empty list on any non-200 response (including 403) so the
+    pipeline can continue with the next query without crashing.
+    """
     url = "https://www.reddit.com/r/all/search.json"
     params = {"q": query, "sort": "relevance", "t": "year", "limit": limit}
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 RedditRecs/1.0"
-    }
+    headers = {"User-Agent": get_random_user_agent()}
     try:
         resp = requests.get(url, params=params, headers=headers, timeout=30)
+        if resp.status_code == 403:
+            print(f"   [SKIP] Reddit returned 403 for query '{query}' — skipping")
+            return []
         if resp.status_code != 200:
-            print(f"Reddit API returned {resp.status_code} for query '{query}'")
+            print(f"   [WARN] Reddit API returned {resp.status_code} for query '{query}'")
             return []
         data = resp.json()
         posts = []
@@ -46,7 +125,7 @@ def search_reddit(query, limit=20):
             })
         return posts
     except Exception as e:
-        print(f"Error searching Reddit: {e}")
+        print(f"   [ERROR] Error searching Reddit: {e}")
         return []
 
 
@@ -120,8 +199,16 @@ def extract_reviews(text, subreddit=""):
 
 
 def run_pipeline():
-    """Main pipeline: search Reddit, extract reviews, save to JSON."""
-    queries = [
+    """Main pipeline: search Reddit, extract reviews, save to JSON.
+
+    Query strategy:
+    1. Fetch product-specific queries from Supabase (e.g. "Dyson HP07 review")
+       so we collect more reviews for products already in the database.
+    2. Fall back to a broad set of generic queries to discover new products.
+    Duplicate queries are deduplicated before the run starts.
+    """
+    # --- Fallback generic queries (used when no DB products exist yet) ---
+    generic_queries = [
         # General
         "best air purifier", "air purifier review", "air purifier recommendation",
         # Brands
@@ -140,7 +227,6 @@ def run_pipeline():
         "humidifier review", "portable air conditioner review",
         # Use-case specific queries
         "air purifier smoke review",
-        "air purifier for pets",
         "best air purifier for allergies",
         "quiet air purifier bedroom",
         "large room air purifier",
@@ -152,8 +238,24 @@ def run_pipeline():
         # New product types
         "dehumidifier review", "best dehumidifier",
         "air conditioner window unit review",
-        "smart plug review", "best smart plug"
+        "smart plug review", "best smart plug",
     ]
+
+    # --- Build the final deduplicated query list ---
+    # Product-specific queries come first so existing products get enriched
+    # before we branch out to generic discovery.
+    product_queries = get_existing_product_names()
+    seen = set()
+    queries = []
+    for q in product_queries + generic_queries:
+        if q not in seen:
+            seen.add(q)
+            queries.append(q)
+
+    print(f"[INFO] Running pipeline with {len(queries)} queries "
+          f"({len(product_queries)} product-specific, "
+          f"{len(queries) - len(product_queries)} generic)")
+
     all_reviews = []
 
     for q in queries:
@@ -170,7 +272,11 @@ def run_pipeline():
                 rev["subreddit"] = subreddit
                 all_reviews.append(rev)
             print(f"   Post {i+1}: {len(reviews)} reviews")
-        time.sleep(1)  # Small delay between queries to be gentle to Reddit
+
+        # Random delay between queries to reduce the chance of rate-limiting
+        delay = random.uniform(2, 5)
+        print(f"   [DELAY] Waiting {delay:.1f}s before next query…")
+        time.sleep(delay)
 
     print(f"\n[OK] Total reviews collected: {len(all_reviews)}")
     with open("reviews_output.json", "w", encoding="utf-8") as f:
@@ -180,3 +286,4 @@ def run_pipeline():
 
 if __name__ == "__main__":
     run_pipeline()
+
