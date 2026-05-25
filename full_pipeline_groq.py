@@ -48,11 +48,17 @@ def extract_reviews(text):
     Returns a list of dicts with keys: sentiment, brand, product_name, verbatim.
     """
     prompt = f"""
-    Extract product reviews from this Reddit text. 
+    Extract product reviews from this Reddit text.
     Return ONLY a single JSON array. Example: [{{"sentiment": "positive", "brand": "Dyson", "product_name": "HP07", "verbatim": "..."}}]
     If no product review, return [].
     Do not add any text before or after the JSON array.
-    
+
+    Rules for brand and product_name:
+    - Extract the brand (manufacturer) and product_name (model) separately.
+    - If a specific model is mentioned (e.g., "Coway Airmega 400"), extract the model name as product_name (e.g., "Airmega 400").
+    - If only the brand is mentioned without a specific model, set product_name to "{{brand}} Air Purifier" (e.g., "Coway Air Purifier").
+    - Never leave product_name empty.
+
     Text: {text[:2000]}
     """
     try:
@@ -74,6 +80,13 @@ def extract_reviews(text):
         # Ensure it's a list (in case the model returns a single object)
         if isinstance(reviews, dict):
             reviews = [reviews]
+        # Safety net: if Groq returned an empty product_name despite the prompt,
+        # fall back to "{brand} Air Purifier" so no record is left incomplete.
+        for rev in reviews:
+            brand = (rev.get("brand") or "").strip()
+            product_name = (rev.get("product_name") or "").strip()
+            if brand and not product_name:
+                rev["product_name"] = f"{brand} Air Purifier"
         return reviews
     except json.JSONDecodeError as e:
         print(f"JSON decode error: {e}\nRaw output: {output[:200]}")
@@ -117,7 +130,7 @@ def run_pipeline():
                 all_reviews.append(rev)
             print(f"   Post {i+1}: {len(reviews)} reviews")
         time.sleep(1)  # Small delay between queries to be gentle to Reddit
-    
+
     print(f"\n[OK] Total reviews collected: {len(all_reviews)}")
     with open("reviews_output.json", "w", encoding="utf-8") as f:
         json.dump(all_reviews, f, indent=2, ensure_ascii=False)
