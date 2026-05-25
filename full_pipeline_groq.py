@@ -5,6 +5,7 @@ import random
 import time
 from dotenv import load_dotenv
 from groq import Groq
+from ddgs import DDGS
 
 # Load environment variables from .env file
 load_dotenv()
@@ -94,11 +95,67 @@ def is_target(brand, product_name):
     return False
 
 
+def fetch_reddit_post_via_url(post_url):
+    """Fetch a Reddit post's JSON directly from its URL by appending '.json'.
+
+    Returns a dict with title, selftext, score, subreddit, url, or None on
+    any error.
+    """
+    json_url = post_url.rstrip("/") + ".json"
+    headers = {"User-Agent": get_random_user_agent()}
+    try:
+        resp = requests.get(json_url, headers=headers, timeout=30)
+        if resp.status_code != 200:
+            return None
+        data = resp.json()
+        # Reddit JSON for a post is a two-element list; first element is the post
+        post = data[0]["data"]["children"][0]["data"]
+        return {
+            "title": post.get("title", ""),
+            "selftext": (post.get("selftext") or "")[:800],
+            "score": post.get("score", 0),
+            "subreddit": post.get("subreddit", ""),
+            "url": post.get("url", post_url),
+        }
+    except Exception as e:
+        print(f"   [WARN] Failed to fetch Reddit post JSON from {json_url}: {e}")
+        return None
+
+
+def search_reddit_via_ddg(brand, model, limit=20):
+    """Fallback: use DuckDuckGo to find Reddit posts about a product.
+
+    Searches for `site:reddit.com "{brand} {model}" review`, then fetches
+    each Reddit post's JSON directly.  Returns a list of post dicts in the
+    same shape as search_reddit().
+    """
+    query = f'site:reddit.com "{brand} {model}" review'
+    print(f"   [DDG]  Falling back to DuckDuckGo: {query}")
+    posts = []
+    try:
+        with DDGS() as ddgs:
+            results = list(ddgs.text(query, max_results=limit))
+        for result in results:
+            href = result.get("href", "")
+            # Only follow links that look like Reddit post URLs
+            if "reddit.com/r/" not in href:
+                continue
+            post = fetch_reddit_post_via_url(href)
+            if post:
+                posts.append(post)
+            # Brief pause between individual post fetches
+            time.sleep(random.uniform(0.5, 1.0))
+    except Exception as e:
+        print(f"   [ERROR] DuckDuckGo fallback failed: {e}")
+    return posts
+
+
 def search_reddit(brand, model, limit=20):
     """Search Reddit directly for posts about a product.
 
     Returns a list of post dicts with title, selftext, score, subreddit, url.
-    Returns an empty list on any error — no fallback.
+    Falls back to DuckDuckGo when Reddit returns a 403 (rate-limit / block).
+    Returns an empty list only when both strategies fail.
     """
     query = f"{brand} {model} review"
     url = "https://www.reddit.com/r/all/search.json"
@@ -106,6 +163,9 @@ def search_reddit(brand, model, limit=20):
     headers = {"User-Agent": get_random_user_agent()}
     try:
         resp = requests.get(url, params=params, headers=headers, timeout=30)
+        if resp.status_code == 403:
+            print(f"   [WARN] Reddit returned 403 for '{query}' — trying DuckDuckGo fallback")
+            return search_reddit_via_ddg(brand, model, limit=limit)
         if resp.status_code != 200:
             print(f"   [WARN] Reddit returned {resp.status_code} for '{query}'")
             return []
