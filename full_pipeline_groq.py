@@ -113,7 +113,18 @@ def run_pipeline():
         "air purifier for large room", "quiet air purifier",
         # HVAC & air quality
         "whole house air purifier", "HVAC air cleaner", "air quality monitor",
-        "humidifier review", "portable air conditioner review"
+        "humidifier review", "portable air conditioner review",
+        # Use-case specific queries (NEW)
+        "air purifier smoke review",
+        "air purifier for pets",
+        "best air purifier for allergies",
+        "quiet air purifier bedroom",
+        "large room air purifier",
+        "air purifier energy efficient",
+        "smart air purifier wifi",
+        "robot vacuum for pet hair",
+        "smart thermostat energy saving",
+        "humidifier for dry air"
     ]
     all_reviews = []
 
