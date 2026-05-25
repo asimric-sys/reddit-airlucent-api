@@ -21,8 +21,37 @@ headers = {
 VALID_SENTIMENTS = {"positive", "negative", "neutral"}
 
 
+def get_category(brand, model_name):
+    """Infer a category slug from keywords in the brand and model name.
+
+    Checks the combined text (lowercased) against a priority-ordered list of
+    keyword rules and returns the first matching category slug.  Falls back to
+    'uncategorized' when nothing matches.
+    """
+    combined = f"{brand} {model_name}".lower()
+
+    if "purifier" in combined:
+        return "air-purifier"
+    if "humidifier" in combined:
+        return "humidifier"
+    if "air conditioner" in combined or " ac " in combined or combined.endswith(" ac"):
+        return "air-conditioner"
+    if "robot vacuum" in combined or "robovac" in combined:
+        return "robot-vacuum"
+    if "doorbell" in combined:
+        return "smart-doorbell"
+    if "thermostat" in combined:
+        return "smart-thermostat"
+
+    return "uncategorized"
+
+
 def get_or_create_product(brand, model_name):
     """Return the product id for (brand, model_name), creating the row if needed.
+
+    When a new product is created its category is inferred automatically via
+    get_category() so it is immediately discoverable through the /categories
+    and /usecase/{case} endpoints.
 
     Returns None when the inputs are invalid or the Supabase call fails.
     """
@@ -39,8 +68,10 @@ def get_or_create_product(brand, model_name):
     if resp.status_code == 200 and resp.json():
         return resp.json()[0]["id"]
 
-    # Product not found — create it
-    insert_data = {"brand": brand, "model_name": model_name}
+    # Product not found — create it with an auto-inferred category
+    category = get_category(brand, model_name)
+    insert_data = {"brand": brand, "model_name": model_name, "category": category}
+    print(f"   [NEW]  Creating product: {brand} {model_name} → category='{category}'")
     url = f"{SUPABASE_URL}/rest/v1/products"
     resp = requests.post(url, headers=headers, json=insert_data)
     if resp.status_code == 201:
