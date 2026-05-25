@@ -31,3 +31,10 @@ jobs:
           python full_pipeline_groq.py
           python store_reviews_simple.py
           python update_rankings_simple.py
+      - name: Enrich products with Amazon data
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          AMAZON_ASSOCIATE_TAG: ${{ secrets.AMAZON_ASSOCIATE_TAG || 'flawlesscar-20' }}
+        run: |
+          python fetch_amazon_data.py
