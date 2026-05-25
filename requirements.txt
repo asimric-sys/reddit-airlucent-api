@@ -7,3 +7,4 @@ beautifulsoup4
 boto3
 requests-aws4auth
 ddgs
+google-generativeai
