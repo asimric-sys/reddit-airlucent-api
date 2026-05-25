@@ -1,8 +1,9 @@
 import json
 import os
+import time
 import requests
 from dotenv import load_dotenv
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 
 load_dotenv()
 
@@ -38,6 +39,8 @@ def fetch_product_image(brand, model_name):
             return image_url
     except Exception as exc:
         print(f"   [WARN] Image fetch failed for '{query}': {exc}")
+    finally:
+        time.sleep(1)
     return None
 
 
