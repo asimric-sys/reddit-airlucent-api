@@ -3,7 +3,6 @@ uvicorn
 requests
 python-dotenv
 groq
-ddgs
 beautifulsoup4
 boto3
 requests-aws4auth
