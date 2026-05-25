@@ -3,4 +3,4 @@ uvicorn
 requests
 python-dotenv
 groq
-duckduckgo-search
+ddgs
