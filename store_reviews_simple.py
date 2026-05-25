@@ -1,9 +1,7 @@
 import json
 import os
-import time
 import requests
 from dotenv import load_dotenv
-from ddgs import DDGS
 
 load_dotenv()
 
@@ -23,27 +21,6 @@ headers = {
 VALID_SENTIMENTS = {"positive", "negative", "neutral"}
 
 
-def fetch_product_image(brand, model_name):
-    """Search DuckDuckGo Images for '{brand} {model_name} product' and return
-    the first image URL found, or None if the search fails or yields no results.
-
-    Errors are caught and logged so that a failed image fetch never blocks the
-    rest of the pipeline.
-    """
-    query = f"{brand} {model_name} product"
-    try:
-        with DDGS() as ddgs:
-            results = list(ddgs.images(query, max_results=1))
-        if results:
-            image_url = results[0].get("image")
-            return image_url
-    except Exception as exc:
-        print(f"   [WARN] Image fetch failed for '{query}': {exc}")
-    finally:
-        time.sleep(1)
-    return None
-
-
 def get_or_create_product(brand, model_name, suggested_category=None):
     """Return the product id for (brand, model_name), creating the row if needed.
 
@@ -51,8 +28,9 @@ def get_or_create_product(brand, model_name, suggested_category=None):
     (extracted by Groq).  "other" is mapped to "uncategorized" so the product
     is still discoverable while clearly flagged as unclassified.
 
-    If the product already exists but has no category or image set, those fields
-    are backfilled so that existing rows are enriched over time.
+    If the product already exists but has no category set, that field is
+    backfilled so that existing rows are enriched over time.  Images are
+    handled separately by fetch_amazon_data.py.
 
     Returns None when the inputs are invalid or the Supabase call fails.
     """
@@ -64,26 +42,18 @@ def get_or_create_product(brand, model_name, suggested_category=None):
     model_name = model_name.strip()
 
     # Try to find an existing product first
-    url = f"{SUPABASE_URL}/rest/v1/products?brand=eq.{brand}&model_name=eq.{model_name}&select=id,category,image_url"
+    url = f"{SUPABASE_URL}/rest/v1/products?brand=eq.{brand}&model_name=eq.{model_name}&select=id,category"
     resp = requests.get(url, headers=headers)
     if resp.status_code == 200 and resp.json():
         existing = resp.json()[0]
         product_id = existing["id"]
         existing_category = (existing.get("category") or "").strip()
-        existing_image = (existing.get("image_url") or "").strip()
 
         patch_fields = {}
 
         # If the product has no category yet, update it with the suggested one
         if not existing_category and suggested_category and suggested_category != "other":
             patch_fields["category"] = suggested_category
-
-        # If the product has no image yet, backfill it now
-        if not existing_image:
-            image_url = fetch_product_image(brand, model_name)
-            if image_url:
-                patch_fields["image_url"] = image_url
-                print(f"   [IMG]  Backfilled image for {brand} {model_name} → {image_url}")
 
         if patch_fields:
             patch_url = f"{SUPABASE_URL}/rest/v1/products?id=eq.{product_id}"
@@ -104,14 +74,7 @@ def get_or_create_product(brand, model_name, suggested_category=None):
         category = "uncategorized"
 
     insert_data = {"brand": brand, "model_name": model_name, "category": category}
-
-    # Fetch an image from DuckDuckGo before inserting so the row is complete
-    image_url = fetch_product_image(brand, model_name)
-    if image_url:
-        insert_data["image_url"] = image_url
-        print(f"   [NEW]  Creating product: {brand} {model_name} → category='{category}', image='{image_url}'")
-    else:
-        print(f"   [NEW]  Creating product: {brand} {model_name} → category='{category}' (no image found)")
+    print(f"   [NEW]  Creating product: {brand} {model_name} → category='{category}'")
 
     url = f"{SUPABASE_URL}/rest/v1/products"
     resp = requests.post(url, headers=headers, json=insert_data)
