@@ -21,9 +21,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install requests groq python-dotenv
-          # If you have requirements.txt, uncomment:
-          # pip install -r requirements.txt
+          pip install -r requirements.txt
       - name: Run scraper
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
