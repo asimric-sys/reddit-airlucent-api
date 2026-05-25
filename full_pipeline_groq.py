@@ -16,6 +16,13 @@ if not GROQ_API_KEY:
 # Initialize Groq client
 client = Groq(api_key=GROQ_API_KEY)
 
+VALID_CATEGORIES = [
+    "air-purifier", "humidifier", "air-conditioner", "robot-vacuum",
+    "smart-doorbell", "smart-thermostat", "heating-cooling",
+    "air-quality", "other"
+]
+
+
 def search_reddit(query, limit=20):
     """Search Reddit using public JSON endpoint with proper User-Agent."""
     url = "https://www.reddit.com/r/all/search.json"
@@ -35,21 +42,27 @@ def search_reddit(query, limit=20):
             posts.append({
                 "title": post["title"],
                 "selftext": post["selftext"][:800],
-                "score": post["score"]
+                "score": post["score"],
+                "subreddit": post.get("subreddit", "")
             })
         return posts
     except Exception as e:
         print(f"Error searching Reddit: {e}")
         return []
 
-def extract_reviews(text):
+
+def extract_reviews(text, subreddit=""):
     """
     Extract product reviews from Reddit text using Groq (Llama 3.3).
-    Returns a list of dicts with keys: sentiment, brand, product_name, verbatim.
+    Returns a list of dicts with keys: sentiment, brand, product_name,
+    category, verbatim.
     """
+    subreddit_context = f" The post is from r/{subreddit}." if subreddit else ""
+    category_options = ", ".join(f'"{c}"' for c in VALID_CATEGORIES)
+
     prompt = f"""
-    Extract product reviews from this Reddit text.
-    Return ONLY a single JSON array. Example: [{{"sentiment": "positive", "brand": "Dyson", "product_name": "HP07", "verbatim": "..."}}]
+    Extract product reviews from this Reddit text.{subreddit_context}
+    Return ONLY a single JSON array. Example: [{{"sentiment": "positive", "brand": "Dyson", "product_name": "HP07", "category": "air-purifier", "verbatim": "..."}}]
     If no product review, return [].
     Do not add any text before or after the JSON array.
 
@@ -59,6 +72,12 @@ def extract_reviews(text):
     - If only the brand is mentioned without a specific model, set product_name to "{{brand}} Air Purifier" (e.g., "Coway Air Purifier").
     - Never leave product_name empty.
 
+    Rules for category:
+    - Choose the single best category from: {category_options}.
+    - Use the subreddit name and post content together to infer the category.
+    - If you cannot determine a specific category, use "other".
+    - Never leave category empty.
+
     Text: {text[:2000]}
     """
     try:
@@ -66,7 +85,7 @@ def extract_reviews(text):
             model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.0,           # Low temp for consistent output
-            max_tokens=500
+            max_tokens=600
         )
         output = response.choices[0].message.content.strip()
         # Remove markdown code blocks
@@ -80,13 +99,17 @@ def extract_reviews(text):
         # Ensure it's a list (in case the model returns a single object)
         if isinstance(reviews, dict):
             reviews = [reviews]
-        # Safety net: if Groq returned an empty product_name despite the prompt,
-        # fall back to "{brand} Air Purifier" so no record is left incomplete.
         for rev in reviews:
+            # Safety net: ensure product_name is never empty
             brand = (rev.get("brand") or "").strip()
             product_name = (rev.get("product_name") or "").strip()
             if brand and not product_name:
                 rev["product_name"] = f"{brand} Air Purifier"
+            # Safety net: ensure category is always a valid value
+            category = (rev.get("category") or "").strip().lower()
+            if category not in VALID_CATEGORIES:
+                category = "other"
+            rev["category"] = category
         return reviews
     except json.JSONDecodeError as e:
         print(f"JSON decode error: {e}\nRaw output: {output[:200]}")
@@ -94,6 +117,7 @@ def extract_reviews(text):
     except Exception as e:
         print(f"Extraction error: {e}")
         return []
+
 
 def run_pipeline():
     """Main pipeline: search Reddit, extract reviews, save to JSON."""
@@ -114,7 +138,7 @@ def run_pipeline():
         # HVAC & air quality
         "whole house air purifier", "HVAC air cleaner", "air quality monitor",
         "humidifier review", "portable air conditioner review",
-        # Use-case specific queries (NEW)
+        # Use-case specific queries
         "air purifier smoke review",
         "air purifier for pets",
         "best air purifier for allergies",
@@ -134,10 +158,12 @@ def run_pipeline():
 
         print(f"   Found {len(posts)} posts")
         for i, post in enumerate(posts):
+            subreddit = post.get("subreddit", "")
             full_text = f"Title: {post['title']}\nBody: {post['selftext']}"
-            reviews = extract_reviews(full_text)
+            reviews = extract_reviews(full_text, subreddit=subreddit)
             for rev in reviews:
                 rev["source_query"] = q
+                rev["subreddit"] = subreddit
                 all_reviews.append(rev)
             print(f"   Post {i+1}: {len(reviews)} reviews")
         time.sleep(1)  # Small delay between queries to be gentle to Reddit
@@ -146,6 +172,7 @@ def run_pipeline():
     with open("reviews_output.json", "w", encoding="utf-8") as f:
         json.dump(all_reviews, f, indent=2, ensure_ascii=False)
     print("[FILE] Saved to reviews_output.json")
+
 
 if __name__ == "__main__":
     run_pipeline()
