@@ -85,17 +85,29 @@ def extract_reviews(text):
 def run_pipeline():
     """Main pipeline: search Reddit, extract reviews, save to JSON."""
     queries = [
-        "best air purifier",
-        "air purifier recommendation",
-        "best gaming mouse",
-        "mechanical keyboard recommendation",
-        "noise cancelling headphones review"
+        # General
+        "best air purifier", "air purifier review", "air purifier recommendation",
+        # Brands
+        "Coway air purifier", "Levoit air purifier", "Winix air purifier", "Blueair air purifier",
+        "Philips air purifier", "Honeywell air purifier", "Austin air purifier", "IQAir",
+        "Alen air purifier", "Medify air purifier", "Shark air purifier", "GermGuardian",
+        "Cuckoo air purifier", "PuroAir", "Govee air purifier", "CleanAirKits",
+        # Specific models
+        "Coway Airmega 400", "Levoit Core 300", "Winix 5500-2", "Blueair 211+",
+        "Philips 1000i", "Honeywell HPA300",
+        # Use cases
+        "air purifier for allergies", "air purifier for smoke", "air purifier for pets",
+        "air purifier for large room", "quiet air purifier",
+        # HVAC & air quality
+        "whole house air purifier", "HVAC air cleaner", "air quality monitor",
+        "humidifier review", "portable air conditioner review"
     ]
     all_reviews = []
-    
+
     for q in queries:
         print(f"\n[SEARCH] Searching: {q}")
-        posts = search_reddit(q, limit=10)
+        posts = search_reddit(q, limit=25)
+
         print(f"   Found {len(posts)} posts")
         for i, post in enumerate(posts):
             full_text = f"Title: {post['title']}\nBody: {post['selftext']}"
