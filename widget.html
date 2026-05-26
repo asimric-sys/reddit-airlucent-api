@@ -1,101 +1,292 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reddit Product Recommendations</title>
+  <title>Reddit Product Recommendations — AirLucent</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
-    /* ── Reset & Base ── */
+    /* ══════════════════════════════════════════
+       RESET & TOKENS
+    ══════════════════════════════════════════ */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:          #0f1117;
-      --surface:     #1a1d27;
-      --surface-2:   #22263a;
-      --border:      #2e3350;
-      --accent:      #6c63ff;
-      --accent-glow: rgba(108, 99, 255, 0.25);
-      --positive:    #22c55e;
-      --negative:    #ef4444;
-      --neutral:     #94a3b8;
-      --text:        #e2e8f0;
-      --text-muted:  #64748b;
-      --radius:      12px;
-      --radius-sm:   8px;
-      --shadow:      0 4px 24px rgba(0,0,0,0.4);
+      /* Dark theme (default) */
+      --bg:            #0f1117;
+      --surface:       #1a1d27;
+      --surface-2:     #22263a;
+      --surface-3:     #2a2f47;
+      --border:        #2e3350;
+      --border-light:  #3a4060;
+      --accent:        #6c63ff;
+      --accent-2:      #8b83ff;
+      --accent-glow:   rgba(108,99,255,0.22);
+      --positive:      #22c55e;
+      --negative:      #ef4444;
+      --neutral:       #94a3b8;
+      --warning:       #eab308;
+      --text:          #e2e8f0;
+      --text-muted:    #64748b;
+      --text-dim:      #94a3b8;
+      --radius:        14px;
+      --radius-sm:     8px;
+      --radius-xs:     5px;
+      --shadow:        0 4px 24px rgba(0,0,0,0.45);
+      --shadow-lg:     0 12px 48px rgba(0,0,0,0.6);
+      --transition:    0.18s ease;
     }
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    [data-theme="light"] {
+      --bg:            #f0f2f8;
+      --surface:       #ffffff;
+      --surface-2:     #f4f6fb;
+      --surface-3:     #e8ecf5;
+      --border:        #dde2f0;
+      --border-light:  #c8d0e8;
+      --accent:        #5b52e8;
+      --accent-2:      #7b74f0;
+      --accent-glow:   rgba(91,82,232,0.12);
+      --positive:      #16a34a;
+      --negative:      #dc2626;
+      --neutral:       #64748b;
+      --warning:       #ca8a04;
+      --text:          #1e2235;
+      --text-muted:    #8896b0;
+      --text-dim:      #64748b;
+      --shadow:        0 4px 20px rgba(0,0,0,0.08);
+      --shadow-lg:     0 12px 40px rgba(0,0,0,0.14);
+    }
+
+    html, body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
-      padding: 24px 16px 40px;
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
     }
 
-    /* ── Header ── */
-    .widget-header {
-      text-align: center;
-      margin-bottom: 32px;
+    /* ══════════════════════════════════════════
+       LAYOUT SHELL
+    ══════════════════════════════════════════ */
+    #app {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
     }
-    .widget-header .badge {
+
+    .top-bar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .top-bar-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .logo-badge {
       display: inline-flex;
       align-items: center;
       gap: 6px;
       background: var(--accent-glow);
       border: 1px solid var(--accent);
       color: var(--accent);
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      padding: 4px 12px;
-      border-radius: 999px;
-      margin-bottom: 12px;
-    }
-    .widget-header h1 {
-      font-size: clamp(20px, 4vw, 28px);
+      font-size: 10px;
       font-weight: 700;
-      letter-spacing: -0.02em;
-      color: #fff;
-    }
-    .widget-header p {
-      margin-top: 6px;
-      font-size: 14px;
-      color: var(--text-muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 999px;
     }
 
-    /* ── Loading / Error States ── */
-    .state-container {
+    .top-bar-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .top-bar-right {
       display: flex;
-      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Search */
+    .search-wrap {
+      position: relative;
+      flex: 1;
+      max-width: 320px;
+    }
+    .search-wrap svg {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+    #search-input {
+      width: 100%;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-size: 13px;
+      padding: 7px 10px 7px 32px;
+      outline: none;
+      transition: border-color var(--transition);
+    }
+    #search-input::placeholder { color: var(--text-muted); }
+    #search-input:focus { border-color: var(--accent); }
+
+    /* Dark mode toggle */
+    .theme-btn {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-dim);
+      cursor: pointer;
+      padding: 6px 8px;
+      display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 260px;
-      gap: 16px;
+      transition: background var(--transition), color var(--transition);
+      flex-shrink: 0;
+    }
+    .theme-btn:hover { background: var(--surface-3); color: var(--text); }
+
+    /* ══════════════════════════════════════════
+       FILTER BAR
+    ══════════════════════════════════════════ */
+    .filter-bar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .filter-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
       color: var(--text-muted);
+      flex-shrink: 0;
     }
-    .spinner {
-      width: 40px;
-      height: 40px;
-      border: 3px solid var(--border);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
+
+    .filter-select {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-size: 12px;
+      padding: 5px 28px 5px 10px;
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      transition: border-color var(--transition);
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    .filter-select:focus { border-color: var(--accent); }
 
-    .error-icon { font-size: 36px; }
-    .error-msg  { font-size: 14px; text-align: center; max-width: 320px; line-height: 1.5; }
+    .filter-chips {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
 
-    /* ── Grid ── */
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 20px;
-      max-width: 1100px;
+    .chip {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--text-dim);
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 12px;
+      cursor: pointer;
+      transition: all var(--transition);
+      white-space: nowrap;
+    }
+    .chip:hover { border-color: var(--accent); color: var(--accent); }
+    .chip.active {
+      background: var(--accent-glow);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .filter-divider {
+      width: 1px;
+      height: 20px;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+
+    /* ══════════════════════════════════════════
+       MAIN CONTENT
+    ══════════════════════════════════════════ */
+    .main-content {
+      flex: 1;
+      padding: 24px 20px 48px;
+      max-width: 1200px;
+      width: 100%;
       margin: 0 auto;
+    }
+
+    /* Section header */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      gap: 12px;
+    }
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .section-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .section-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ══════════════════════════════════════════
+       PRODUCT GRID
+    ══════════════════════════════════════════ */
+    .product-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+      gap: 18px;
     }
 
     /* ── Card ── */
@@ -104,136 +295,790 @@
       border: 1px solid var(--border);
       border-radius: var(--radius);
       overflow: hidden;
-      box-shadow: var(--shadow);
       display: flex;
       flex-direction: column;
-      transition: transform 0.18s ease, box-shadow 0.18s ease;
+      box-shadow: var(--shadow);
+      transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
+      cursor: pointer;
     }
     .card:hover {
       transform: translateY(-3px);
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px var(--accent);
+      box-shadow: var(--shadow-lg);
+      border-color: var(--accent);
     }
 
-    /* Rank ribbon */
-    .card-rank {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      background: var(--accent);
-      color: #fff;
-      font-size: 11px;
-      font-weight: 700;
-      padding: 3px 8px;
-      border-radius: 999px;
-      letter-spacing: 0.04em;
-    }
-
-    /* Image area */
     .card-image-wrap {
       position: relative;
       background: var(--surface-2);
-      height: 180px;
+      height: 170px;
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
     }
     .card-image-wrap img {
-      max-height: 160px;
-      max-width: 90%;
+      max-height: 150px;
+      max-width: 88%;
       object-fit: contain;
       transition: transform 0.3s ease;
     }
-    .card:hover .card-image-wrap img { transform: scale(1.04); }
-    .card-image-placeholder {
-      font-size: 48px;
-      opacity: 0.25;
+    .card:hover .card-image-wrap img { transform: scale(1.05); }
+    .card-img-placeholder { font-size: 44px; opacity: 0.2; }
+
+    .card-rank {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 999px;
+      letter-spacing: 0.05em;
     }
 
-    /* Body */
+    .card-compare-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      color: var(--text-muted);
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 7px;
+      cursor: pointer;
+      transition: all var(--transition);
+      opacity: 0;
+    }
+    .card:hover .card-compare-btn { opacity: 1; }
+    .card-compare-btn:hover,
+    .card-compare-btn.selected {
+      background: var(--accent-glow);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .card-compare-btn.selected { opacity: 1; }
+
     .card-body {
-      padding: 16px;
+      padding: 14px 16px 16px;
       flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
     }
 
     .card-brand {
-      font-size: 11px;
-      font-weight: 600;
+      font-size: 10px;
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.1em;
       color: var(--accent);
     }
     .card-name {
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 600;
-      color: #fff;
+      color: var(--text);
       line-height: 1.35;
     }
     .card-category {
-      font-size: 12px;
+      font-size: 11px;
       color: var(--text-muted);
-      margin-top: 2px;
     }
 
-    /* Score pill */
-    .score-row {
+    .card-meta {
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 8px;
     }
+
     .score-pill {
       display: inline-flex;
       align-items: center;
       gap: 5px;
       padding: 4px 10px;
       border-radius: 999px;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 700;
     }
-    .score-pill.high   { background: rgba(34,197,94,0.15);  color: var(--positive); }
-    .score-pill.medium { background: rgba(234,179,8,0.15);  color: #eab308; }
-    .score-pill.low    { background: rgba(239,68,68,0.15);  color: var(--negative); }
-    .score-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    .score-pill.high   { background: rgba(34,197,94,0.12);  color: var(--positive); }
+    .score-pill.medium { background: rgba(234,179,8,0.12);  color: var(--warning); }
+    .score-pill.low    { background: rgba(239,68,68,0.12);  color: var(--negative); }
+    .score-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
-    .total-reviews {
-      font-size: 12px;
+    .review-count {
+      font-size: 11px;
       color: var(--text-muted);
     }
 
     /* Sentiment bar */
-    .sentiment-bar-wrap { display: flex; flex-direction: column; gap: 4px; }
-    .sentiment-bar-label {
+    .sent-bar-wrap { display: flex; flex-direction: column; gap: 4px; }
+    .sent-bar-labels {
       display: flex;
       justify-content: space-between;
-      font-size: 11px;
+      font-size: 10px;
       color: var(--text-muted);
     }
-    .sentiment-bar-track {
-      height: 6px;
+    .sent-bar-track {
+      height: 5px;
       background: var(--surface-2);
       border-radius: 999px;
       overflow: hidden;
       display: flex;
     }
-    .sentiment-bar-track .seg-pos { background: var(--positive); }
-    .sentiment-bar-track .seg-neu { background: var(--neutral); }
-    .sentiment-bar-track .seg-neg { background: var(--negative); }
+    .seg-pos { background: var(--positive); }
+    .seg-neu { background: var(--neutral); opacity: 0.5; }
+    .seg-neg { background: var(--negative); }
 
-    /* Chart */
-    .chart-wrap {
-      position: relative;
-      height: 90px;
+    /* Price tag */
+    .card-price {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .card-price span {
+      font-size: 10px;
+      font-weight: 400;
+      color: var(--text-muted);
+      margin-left: 3px;
     }
 
-    /* Footer */
-    .widget-footer {
-      text-align: center;
+    /* ══════════════════════════════════════════
+       PAGINATION
+    ══════════════════════════════════════════ */
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
       margin-top: 32px;
+    }
+    .page-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-dim);
+      font-size: 13px;
+      font-weight: 500;
+      padding: 7px 14px;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .page-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+    .page-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      font-weight: 700;
+    }
+    .page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* ══════════════════════════════════════════
+       COMPARE BAR
+    ══════════════════════════════════════════ */
+    .compare-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 200;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      box-shadow: 0 -4px 24px rgba(0,0,0,0.3);
+      transform: translateY(100%);
+      transition: transform 0.25s ease;
+    }
+    .compare-bar.visible { transform: translateY(0); }
+
+    .compare-bar-items {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+      overflow: hidden;
+    }
+    .compare-bar-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .compare-item-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 5px 10px;
+      font-size: 12px;
+      color: var(--text);
+      white-space: nowrap;
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .compare-item-remove {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      padding: 0;
+      flex-shrink: 0;
+    }
+    .compare-item-remove:hover { color: var(--negative); }
+
+    .compare-actions {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    /* ══════════════════════════════════════════
+       BUTTONS
+    ══════════════════════════════════════════ */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 16px;
+      cursor: pointer;
+      transition: all var(--transition);
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+    .btn-primary:hover { background: var(--accent-2); border-color: var(--accent-2); }
+    .btn-secondary {
+      background: var(--surface-2);
+      color: var(--text-dim);
+      border-color: var(--border);
+    }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-muted);
+      border-color: transparent;
+    }
+    .btn-ghost:hover { color: var(--text); background: var(--surface-2); }
+    .btn-sm { padding: 5px 12px; font-size: 12px; }
+    .btn-danger {
+      background: rgba(239,68,68,0.1);
+      color: var(--negative);
+      border-color: rgba(239,68,68,0.3);
+    }
+    .btn-danger:hover { background: rgba(239,68,68,0.2); }
+
+    /* ══════════════════════════════════════════
+       MODAL OVERLAY
+    ══════════════════════════════════════════ */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 300;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 20px;
+      overflow-y: auto;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-lg);
+      width: 100%;
+      max-width: 900px;
+      margin: auto;
+      transform: translateY(16px);
+      transition: transform 0.2s ease;
+    }
+    .modal-overlay.open .modal { transform: translateY(0); }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 22px;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+    .modal-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .modal-close {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      color: var(--text-muted);
+      cursor: pointer;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      transition: all var(--transition);
+      flex-shrink: 0;
+    }
+    .modal-close:hover { background: var(--surface-3); color: var(--text); }
+
+    .modal-body {
+      padding: 22px;
+      overflow-y: auto;
+      max-height: calc(90vh - 80px);
+    }
+
+    /* ══════════════════════════════════════════
+       PRODUCT DETAIL VIEW
+    ══════════════════════════════════════════ */
+    .detail-hero {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      gap: 24px;
+      margin-bottom: 28px;
+    }
+    @media (max-width: 600px) {
+      .detail-hero { grid-template-columns: 1fr; }
+    }
+
+    .detail-image-wrap {
+      background: var(--surface-2);
+      border-radius: var(--radius);
+      height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .detail-image-wrap img {
+      max-height: 180px;
+      max-width: 90%;
+      object-fit: contain;
+    }
+
+    .detail-info { display: flex; flex-direction: column; gap: 12px; }
+    .detail-brand {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+    }
+    .detail-name {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.25;
+    }
+    .detail-category {
       font-size: 12px;
       color: var(--text-muted);
+    }
+
+    .detail-stats {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .stat-box {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      text-align: center;
+      min-width: 80px;
+    }
+    .stat-value {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--text);
+      line-height: 1;
+    }
+    .stat-value.positive { color: var(--positive); }
+    .stat-value.negative { color: var(--negative); }
+    .stat-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .detail-price {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .detail-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 2px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 22px;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 10px 16px;
+      margin-bottom: -1px;
+      transition: all var(--transition);
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+      font-weight: 600;
+    }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Pros / Cons */
+    .pros-cons-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 500px) {
+      .pros-cons-grid { grid-template-columns: 1fr; }
+    }
+
+    .pros-box, .cons-box {
+      background: var(--surface-2);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+    }
+    .pros-box { border-left: 3px solid var(--positive); }
+    .cons-box { border-left: 3px solid var(--negative); }
+
+    .pc-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 10px;
+    }
+    .pros-box .pc-title { color: var(--positive); }
+    .cons-box .pc-title { color: var(--negative); }
+
+    .pc-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 0;
+      font-size: 13px;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+    }
+    .pc-item:last-child { border-bottom: none; }
+    .pc-icon { font-size: 12px; flex-shrink: 0; }
+    .pc-count {
+      margin-left: auto;
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    /* Trend chart */
+    .trend-wrap {
+      background: var(--surface-2);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+    .trend-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
+    }
+    .trend-chart-wrap { position: relative; height: 160px; }
+
+    /* Reviews */
+    .review-list { display: flex; flex-direction: column; gap: 12px; }
+    .review-card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+    }
+    .review-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      gap: 8px;
+    }
+    .review-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .review-sub {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+    .review-date {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .sentiment-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .sentiment-badge.positive { background: rgba(34,197,94,0.12); color: var(--positive); }
+    .sentiment-badge.negative { background: rgba(239,68,68,0.12); color: var(--negative); }
+    .sentiment-badge.neutral  { background: rgba(148,163,184,0.12); color: var(--neutral); }
+
+    .review-text {
+      font-size: 13px;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+
+    /* ══════════════════════════════════════════
+       COMPARE MODAL
+    ══════════════════════════════════════════ */
+    .compare-grid {
+      display: grid;
+      gap: 16px;
+    }
+    .compare-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+    .compare-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+    @media (max-width: 640px) {
+      .compare-grid.cols-2,
+      .compare-grid.cols-3 { grid-template-columns: 1fr; }
+    }
+
+    .compare-col {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .compare-col.winner { border-color: var(--accent); }
+
+    .compare-col-image {
+      background: var(--surface-3);
+      border-radius: var(--radius-xs);
+      height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .compare-col-image img {
+      max-height: 100px;
+      max-width: 90%;
+      object-fit: contain;
+    }
+
+    .compare-col-brand {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+    }
+    .compare-col-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.3;
+    }
+
+    .compare-score-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .compare-score-bar-wrap {
+      flex: 1;
+      height: 6px;
+      background: var(--surface-3);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .compare-score-bar {
+      height: 100%;
+      border-radius: 999px;
+      background: var(--accent);
+      transition: width 0.6s ease;
+    }
+    .compare-score-val {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .compare-pc-section { display: flex; flex-direction: column; gap: 4px; }
+    .compare-pc-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 4px;
+    }
+    .compare-pc-title.pos { color: var(--positive); }
+    .compare-pc-title.neg { color: var(--negative); }
+    .compare-pc-item {
+      font-size: 12px;
+      color: var(--text-dim);
+      padding: 3px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .compare-pc-item:last-child { border-bottom: none; }
+
+    .winner-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--accent-glow);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    /* ══════════════════════════════════════════
+       SEARCH RESULTS DROPDOWN
+    ══════════════════════════════════════════ */
+    .search-results-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow-lg);
+      z-index: 500;
+      overflow: hidden;
+      max-height: 280px;
+      overflow-y: auto;
+    }
+    .search-result-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: background var(--transition);
+      border-bottom: 1px solid var(--border);
+    }
+    .search-result-item:last-child { border-bottom: none; }
+    .search-result-item:hover { background: var(--surface-2); }
+    .search-result-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+    }
+    .search-result-brand {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .search-result-score {
+      margin-left: auto;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    /* ══════════════════════════════════════════
+       LOADING / ERROR STATES
+    ══════════════════════════════════════════ */
+    .state-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 280px;
+      gap: 16px;
+      color: var(--text-muted);
+    }
+    .spinner {
+      width: 38px;
+      height: 38px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .state-msg { font-size: 14px; text-align: center; max-width: 300px; line-height: 1.5; }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--text-muted);
+    }
+    .empty-icon { font-size: 40px; margin-bottom: 12px; }
+    .empty-title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+    .empty-sub { font-size: 13px; }
+
+    /* ══════════════════════════════════════════
+       FOOTER
+    ══════════════════════════════════════════ */
+    .widget-footer {
+      text-align: center;
+      padding: 16px 20px;
+      font-size: 12px;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
     }
     .widget-footer a {
       color: var(--accent);
@@ -241,7 +1086,9 @@
     }
     .widget-footer a:hover { text-decoration: underline; }
 
-    /* Blocked state */
+    /* ══════════════════════════════════════════
+       BLOCKED STATE
+    ══════════════════════════════════════════ */
     .blocked {
       display: flex;
       flex-direction: column;
@@ -255,6 +1102,35 @@
     }
     .blocked h2 { color: var(--negative); font-size: 18px; }
     .blocked p  { font-size: 13px; max-width: 320px; line-height: 1.6; }
+
+    /* ══════════════════════════════════════════
+       RESPONSIVE TWEAKS
+    ══════════════════════════════════════════ */
+    @media (max-width: 640px) {
+      .top-bar { padding: 0 12px; }
+      .top-bar-title { display: none; }
+      .filter-bar { padding: 8px 12px; }
+      .main-content { padding: 16px 12px 80px; }
+      .product-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+    }
+    @media (max-width: 420px) {
+      .product-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ══════════════════════════════════════════
+       UTILITY
+    ══════════════════════════════════════════ */
+    .hidden { display: none !important; }
+    .text-positive { color: var(--positive); }
+    .text-negative { color: var(--negative); }
+    .text-muted    { color: var(--text-muted); }
+    .mt-4  { margin-top: 4px; }
+    .mt-8  { margin-top: 8px; }
+    .mt-16 { margin-top: 16px; }
+    .flex  { display: flex; }
+    .items-center { align-items: center; }
+    .gap-8 { gap: 8px; }
+    .w-full { width: 100%; }
   </style>
 </head>
 <body>
@@ -265,85 +1141,93 @@
 (function () {
   "use strict";
 
-  /* ── Anti-embedding protection ── */
+  /* ════════════════════════════════════════════
+     CONSTANTS
+  ════════════════════════════════════════════ */
+  const API_BASE       = window.location.origin;
+  const PAGE_SIZE      = 12;
+  const MAX_COMPARE    = 3;
   const ALLOWED_ORIGINS = ["https://airlucent.com", "https://www.airlucent.com"];
 
+  const USECASE_OPTIONS = [
+    { value: "",                 label: "All Use Cases" },
+    { value: "smoke",            label: "Smoke & Odor" },
+    { value: "pets",             label: "Pets" },
+    { value: "allergies",        label: "Allergies" },
+    { value: "quiet",            label: "Quiet / Sleep" },
+    { value: "large-room",       label: "Large Room" },
+    { value: "small-room",       label: "Small Room" },
+    { value: "energy-efficiency",label: "Energy Efficient" },
+    { value: "smart-home",       label: "Smart Home" },
+  ];
+
+  /* ════════════════════════════════════════════
+     ANTI-EMBEDDING PROTECTION
+  ════════════════════════════════════════════ */
   function isEmbeddingAllowed() {
-    // Allow direct access (no referrer) for development / server-side rendering
-    if (!document.referrer) return true;
+    if (!document.referrer) return true; // direct access / dev
     try {
       const ref = new URL(document.referrer);
-      return ALLOWED_ORIGINS.some(o => {
-        const allowed = new URL(o);
-        return ref.hostname === allowed.hostname;
-      });
-    } catch (_) {
-      return false;
-    }
+      return ALLOWED_ORIGINS.some(o => new URL(o).hostname === ref.hostname);
+    } catch (_) { return false; }
   }
 
-  const app = document.getElementById("app");
+  /* ════════════════════════════════════════════
+     STATE
+  ════════════════════════════════════════════ */
+  const state = {
+    rankings:       [],
+    categories:     [],
+    subreddits:     [],
+    compareList:    [],   // array of ranking objects
+    currentPage:    1,
+    totalItems:     0,
+    filters: {
+      category:  "",
+      subreddit: "",
+      usecase:   "",
+    },
+    searchQuery:    "",
+    searchResults:  [],
+    searchTimer:    null,
+    activeCharts:   {},   // chart instances keyed by canvas id
+  };
 
-  if (!isEmbeddingAllowed()) {
-    app.innerHTML = `
-      <div class="blocked">
-        <div style="font-size:48px">🚫</div>
-        <h2>Embedding Not Allowed</h2>
-        <p>This widget may only be embedded on <strong>airlucent.com</strong>.</p>
-      </div>`;
-    return;
+  /* ════════════════════════════════════════════
+     HELPERS
+  ════════════════════════════════════════════ */
+  function esc(str) {
+    return String(str ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   }
 
-  /* ── Render skeleton ── */
-  app.innerHTML = `
-    <div class="widget-header">
-      <div class="badge">
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
-          <circle cx="5" cy="5" r="5"/>
-        </svg>
-        Live Reddit Data
-      </div>
-      <h1>Top Recommended Products</h1>
-      <p>Ranked by real Reddit sentiment — updated daily</p>
-    </div>
-    <div id="content">
-      <div class="state-container">
-        <div class="spinner"></div>
-        <span>Fetching recommendations…</span>
-      </div>
-    </div>
-    <div class="widget-footer">
-      Powered by <a href="https://airlucent.com" target="_blank" rel="noopener">AirLucent</a>
-      &nbsp;·&nbsp; Data sourced from Reddit
-    </div>`;
-
-  const content = document.getElementById("content");
-
-  /* ── Helpers ── */
   function scoreClass(score) {
     if (score >= 0.7) return "high";
     if (score >= 0.4) return "medium";
     return "low";
   }
 
-  function scoreLabel(score) {
-    const pct = Math.round((score || 0) * 100);
-    return pct + "%";
+  function scorePct(score) {
+    return Math.round((score || 0) * 100) + "%";
   }
 
   function sentimentBarHTML(pos, neg, neu) {
     const total = (pos || 0) + (neg || 0) + (neu || 0);
-    if (total === 0) return "";
+    if (!total) return "";
     const pPos = ((pos / total) * 100).toFixed(1);
     const pNeg = ((neg / total) * 100).toFixed(1);
     const pNeu = (100 - parseFloat(pPos) - parseFloat(pNeg)).toFixed(1);
     return `
-      <div class="sentiment-bar-wrap">
-        <div class="sentiment-bar-label">
-          <span>😊 ${pos} positive</span>
-          <span>${neg} negative 😞</span>
+      <div class="sent-bar-wrap">
+        <div class="sent-bar-labels">
+          <span>😊 ${pos.toLocaleString()}</span>
+          <span>${neg.toLocaleString()} 😞</span>
         </div>
-        <div class="sentiment-bar-track">
+        <div class="sent-bar-track">
           <div class="seg-pos" style="width:${pPos}%"></div>
           <div class="seg-neu" style="width:${pNeu}%"></div>
           <div class="seg-neg" style="width:${pNeg}%"></div>
@@ -351,13 +1235,296 @@
       </div>`;
   }
 
-  function renderCards(rankings) {
-    const top6 = rankings.slice(0, 6);
+  function formatDate(str) {
+    if (!str) return "";
+    try {
+      return new Date(str).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    } catch (_) { return str; }
+  }
+
+  function destroyChart(id) {
+    if (state.activeCharts[id]) {
+      state.activeCharts[id].destroy();
+      delete state.activeCharts[id];
+    }
+  }
+
+  function destroyAllCharts() {
+    Object.keys(state.activeCharts).forEach(destroyChart);
+  }
+
+  /* ════════════════════════════════════════════
+     API CALLS
+  ════════════════════════════════════════════ */
+  async function apiFetch(path) {
+    const res = await fetch(`${API_BASE}${path}`);
+    if (!res.ok) throw new Error(`API ${res.status}: ${path}`);
+    return res.json();
+  }
+
+  async function fetchRankings() {
+    const { filters, currentPage } = state;
+    const offset = (currentPage - 1) * PAGE_SIZE;
+    let path;
+
+    if (filters.usecase) {
+      // Use-case endpoint returns different shape
+      const data = await apiFetch(`/usecase/${encodeURIComponent(filters.usecase)}?limit=${PAGE_SIZE}`);
+      const recs = (data.recommendations || []).map((r, i) => ({
+        rank: i + 1,
+        product_id: r.product?.id,
+        product: r.product,
+        sentiment_score: r.score,
+        positive_count: r.positive_count,
+        negative_count: r.negative_count,
+        neutral_count: 0,
+      }));
+      state.rankings   = recs;
+      state.totalItems = recs.length;
+      return;
+    }
+
+    const params = new URLSearchParams({
+      limit:  PAGE_SIZE,
+      offset: offset,
+    });
+    if (filters.category)  params.set("category",  filters.category);
+    if (filters.subreddit) params.set("subreddit", filters.subreddit);
+
+    const data = await apiFetch(`/rankings?${params}`);
+    state.rankings   = data.rankings || [];
+    // API doesn't return total count — estimate from returned length
+    if (state.rankings.length < PAGE_SIZE && currentPage === 1) {
+      state.totalItems = state.rankings.length;
+    } else if (state.rankings.length < PAGE_SIZE) {
+      state.totalItems = (currentPage - 1) * PAGE_SIZE + state.rankings.length;
+    } else {
+      state.totalItems = currentPage * PAGE_SIZE + 1; // at least one more page
+    }
+  }
+
+  async function fetchCategories() {
+    try {
+      const data = await apiFetch("/categories");
+      state.categories = data.categories || [];
+    } catch (_) { state.categories = []; }
+  }
+
+  async function fetchSubreddits() {
+    // Derive subreddits from a small rankings sample
+    try {
+      const data = await apiFetch("/rankings?limit=50");
+      const subs = new Set();
+      (data.rankings || []).forEach(r => {
+        if (r.subreddit) subs.add(r.subreddit);
+      });
+      state.subreddits = [...subs].sort();
+    } catch (_) { state.subreddits = []; }
+  }
+
+  async function fetchProductDetail(productId) {
+    return apiFetch(`/product/${encodeURIComponent(productId)}`);
+  }
+
+  async function fetchTrend(productId) {
+    try {
+      return apiFetch(`/trend/${encodeURIComponent(productId)}`);
+    } catch (_) { return { history: [] }; }
+  }
+
+  async function fetchCompare(ids) {
+    return apiFetch(`/compare?ids=${ids.map(encodeURIComponent).join(",")}`);
+  }
+
+  async function fetchSearch(q) {
+    if (q.length < 2) return [];
+    try {
+      const data = await apiFetch(`/search?q=${encodeURIComponent(q)}`);
+      return data.results || [];
+    } catch (_) { return []; }
+  }
+
+  /* ════════════════════════════════════════════
+     RENDER — SHELL
+  ════════════════════════════════════════════ */
+  const appEl = document.getElementById("app");
+
+  function buildShell() {
+    appEl.innerHTML = `
+      <!-- Top bar -->
+      <header class="top-bar">
+        <div class="top-bar-left">
+          <div class="logo-badge">
+            <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor"><circle cx="4" cy="4" r="4"/></svg>
+            Live
+          </div>
+          <span class="top-bar-title">Reddit Product Rankings</span>
+        </div>
+
+        <div class="search-wrap" id="search-wrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" id="search-input" placeholder="Search products…" autocomplete="off" />
+          <div id="search-dropdown" class="search-results-dropdown hidden"></div>
+        </div>
+
+        <div class="top-bar-right">
+          <button class="theme-btn" id="theme-btn" title="Toggle dark/light mode" aria-label="Toggle theme">
+            <svg id="theme-icon-dark" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+            <svg id="theme-icon-light" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hidden">
+              <circle cx="12" cy="12" r="5"/>
+              <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+              <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Filter bar -->
+      <div class="filter-bar" id="filter-bar">
+        <span class="filter-label">Filter</span>
+
+        <select class="filter-select" id="filter-category">
+          <option value="">All Categories</option>
+        </select>
+
+        <select class="filter-select" id="filter-subreddit">
+          <option value="">All Subreddits</option>
+        </select>
+
+        <div class="filter-divider"></div>
+
+        <span class="filter-label">Use Case</span>
+        <div class="filter-chips" id="usecase-chips"></div>
+      </div>
+
+      <!-- Main -->
+      <main class="main-content" id="main-content">
+        <div class="state-container">
+          <div class="spinner"></div>
+          <span class="state-msg">Loading rankings…</span>
+        </div>
+      </main>
+
+      <!-- Footer -->
+      <footer class="widget-footer">
+        Powered by <a href="https://airlucent.com" target="_blank" rel="noopener noreferrer">AirLucent</a>
+        &nbsp;·&nbsp; Data sourced from Reddit &nbsp;·&nbsp; Updated daily
+      </footer>
+
+      <!-- Compare bar -->
+      <div class="compare-bar" id="compare-bar">
+        <div class="compare-bar-items">
+          <span class="compare-bar-label">Compare:</span>
+          <div id="compare-chips"></div>
+        </div>
+        <div class="compare-actions">
+          <button class="btn btn-secondary btn-sm" id="compare-clear-btn">Clear</button>
+          <button class="btn btn-primary btn-sm" id="compare-run-btn">Compare Now</button>
+        </div>
+      </div>
+
+      <!-- Product detail modal -->
+      <div class="modal-overlay" id="detail-modal" role="dialog" aria-modal="true" aria-label="Product detail">
+        <div class="modal" id="detail-modal-inner">
+          <div class="modal-header">
+            <span class="modal-title" id="detail-modal-title">Product Detail</span>
+            <button class="modal-close" id="detail-modal-close" aria-label="Close">✕</button>
+          </div>
+          <div class="modal-body" id="detail-modal-body">
+            <div class="state-container"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Compare modal -->
+      <div class="modal-overlay" id="compare-modal" role="dialog" aria-modal="true" aria-label="Product comparison">
+        <div class="modal" style="max-width:1000px">
+          <div class="modal-header">
+            <span class="modal-title">Product Comparison</span>
+            <button class="modal-close" id="compare-modal-close" aria-label="Close">✕</button>
+          </div>
+          <div class="modal-body" id="compare-modal-body">
+            <div class="state-container"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  /* ════════════════════════════════════════════
+     RENDER — FILTER OPTIONS
+  ════════════════════════════════════════════ */
+  function populateFilters() {
+    const catSel = document.getElementById("filter-category");
+    state.categories.forEach(cat => {
+      const opt = document.createElement("option");
+      opt.value = cat;
+      opt.textContent = cat;
+      catSel.appendChild(opt);
+    });
+
+    const subSel = document.getElementById("filter-subreddit");
+    state.subreddits.forEach(sub => {
+      const opt = document.createElement("option");
+      opt.value = sub;
+      opt.textContent = "r/" + sub;
+      subSel.appendChild(opt);
+    });
+
+    const chipsEl = document.getElementById("usecase-chips");
+    USECASE_OPTIONS.forEach(uc => {
+      const chip = document.createElement("button");
+      chip.className = "chip" + (state.filters.usecase === uc.value ? " active" : "");
+      chip.dataset.value = uc.value;
+      chip.textContent = uc.label;
+      chip.addEventListener("click", () => {
+        state.filters.usecase = uc.value;
+        state.currentPage = 1;
+        document.querySelectorAll(".filter-chips .chip").forEach(c => {
+          c.classList.toggle("active", c.dataset.value === uc.value);
+        });
+        loadAndRenderRankings();
+      });
+      chipsEl.appendChild(chip);
+    });
+  }
+
+  /* ════════════════════════════════════════════
+     RENDER — PRODUCT GRID
+  ════════════════════════════════════════════ */
+  function renderGrid() {
+    const main = document.getElementById("main-content");
+    if (!state.rankings.length) {
+      main.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">🔍</div>
+          <div class="empty-title">No products found</div>
+          <div class="empty-sub">Try adjusting your filters or search query.</div>
+        </div>`;
+      return;
+    }
+
+    const sectionHeader = `
+      <div class="section-header">
+        <div>
+          <div class="section-title">Top Recommended Products</div>
+          <div class="section-subtitle">Ranked by real Reddit sentiment — updated daily</div>
+        </div>
+        <div class="section-actions">
+          <span style="font-size:12px;color:var(--text-muted)">${state.rankings.length} products</span>
+        </div>
+      </div>`;
 
     const grid = document.createElement("div");
-    grid.className = "grid";
+    grid.className = "product-grid";
+    grid.id = "product-grid";
 
-    top6.forEach((item, idx) => {
+    state.rankings.forEach((item, idx) => {
       const product  = item.product || {};
       const score    = item.sentiment_score || 0;
       const posCount = item.positive_count  || 0;
@@ -368,129 +1535,718 @@
       const model    = product.model_name || "Unknown Model";
       const category = product.category   || "";
       const imageUrl = product.image_url  || "";
+      const price    = product.amazon_price;
       const rank     = item.rank || (idx + 1);
+      const pid      = item.product_id || product.id || "";
+      const isSelected = state.compareList.some(c => (c.product_id || c.product?.id) === pid);
 
       const card = document.createElement("div");
       card.className = "card";
+      card.dataset.productId = pid;
       card.innerHTML = `
         <div class="card-image-wrap">
           <span class="card-rank">#${rank}</span>
           ${imageUrl
-            ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(model)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">`
+            ? `<img src="${esc(imageUrl)}" alt="${esc(model)}" loading="lazy"
+                    onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
             : ""}
-          <div class="card-image-placeholder" ${imageUrl ? 'style="display:none"' : ""}>📦</div>
+          <div class="card-img-placeholder" ${imageUrl ? 'style="display:none"' : ""}>📦</div>
+          <button class="card-compare-btn${isSelected ? " selected" : ""}"
+                  data-pid="${esc(pid)}" title="Add to comparison">
+            ${isSelected ? "✓ Added" : "+ Compare"}
+          </button>
         </div>
         <div class="card-body">
           <div>
-            <div class="card-brand">${escapeHtml(brand)}</div>
-            <div class="card-name">${escapeHtml(model)}</div>
-            ${category ? `<div class="card-category">${escapeHtml(category)}</div>` : ""}
+            <div class="card-brand">${esc(brand)}</div>
+            <div class="card-name">${esc(model)}</div>
+            ${category ? `<div class="card-category">${esc(category)}</div>` : ""}
           </div>
-          <div class="score-row">
+          <div class="card-meta">
             <div class="score-pill ${scoreClass(score)}">
               <span class="score-dot"></span>
-              ${scoreLabel(score)} Positive
+              ${scorePct(score)} Positive
             </div>
-            <span class="total-reviews">${total.toLocaleString()} reviews</span>
+            <span class="review-count">${total.toLocaleString()} reviews</span>
           </div>
           ${sentimentBarHTML(posCount, negCount, neuCount)}
-          <div class="chart-wrap">
-            <canvas id="chart-${idx}" aria-label="Sentiment chart for ${escapeHtml(model)}"></canvas>
-          </div>
+          ${price ? `<div class="card-price">$${parseFloat(price).toFixed(2)}<span>on Amazon</span></div>` : ""}
         </div>`;
+
+      // Click card body → open detail
+      card.querySelector(".card-body").addEventListener("click", () => openDetailModal(pid, item));
+      card.querySelector(".card-image-wrap").addEventListener("click", (e) => {
+        if (!e.target.classList.contains("card-compare-btn")) openDetailModal(pid, item);
+      });
+
+      // Compare button
+      card.querySelector(".card-compare-btn").addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleCompare(item, card.querySelector(".card-compare-btn"));
+      });
 
       grid.appendChild(card);
     });
 
-    content.innerHTML = "";
-    content.appendChild(grid);
+    const paginationHTML = renderPaginationHTML();
 
-    /* ── Draw doughnut charts after DOM insertion ── */
-    top6.forEach((item, idx) => {
-      const posCount = item.positive_count || 0;
-      const negCount = item.negative_count || 0;
-      const neuCount = item.neutral_count  || 0;
-      const canvas   = document.getElementById(`chart-${idx}`);
-      if (!canvas) return;
+    main.innerHTML = sectionHeader;
+    main.appendChild(grid);
+    if (paginationHTML) {
+      const pagDiv = document.createElement("div");
+      pagDiv.innerHTML = paginationHTML;
+      main.appendChild(pagDiv.firstElementChild);
+      bindPaginationEvents();
+    }
+  }
 
-      new Chart(canvas, {
-        type: "doughnut",
-        data: {
-          labels: ["Positive", "Neutral", "Negative"],
-          datasets: [{
-            data: [posCount, neuCount, negCount],
-            backgroundColor: ["#22c55e", "#94a3b8", "#ef4444"],
-            borderColor: "#1a1d27",
-            borderWidth: 2,
-            hoverOffset: 4
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          cutout: "68%",
-          plugins: {
-            legend: {
-              position: "right",
-              labels: {
-                color: "#94a3b8",
-                font: { size: 11 },
-                boxWidth: 10,
-                padding: 8
-              }
-            },
-            tooltip: {
-              callbacks: {
-                label: ctx => ` ${ctx.label}: ${ctx.parsed.toLocaleString()}`
-              }
-            }
-          }
+  /* ════════════════════════════════════════════
+     PAGINATION
+  ════════════════════════════════════════════ */
+  function renderPaginationHTML() {
+    const totalPages = Math.ceil(state.totalItems / PAGE_SIZE);
+    if (totalPages <= 1) return "";
+
+    let html = `<div class="pagination">`;
+    html += `<button class="page-btn" data-page="${state.currentPage - 1}" ${state.currentPage === 1 ? "disabled" : ""}>← Prev</button>`;
+
+    for (let p = 1; p <= totalPages; p++) {
+      if (p === 1 || p === totalPages || Math.abs(p - state.currentPage) <= 1) {
+        html += `<button class="page-btn${p === state.currentPage ? " active" : ""}" data-page="${p}">${p}</button>`;
+      } else if (Math.abs(p - state.currentPage) === 2) {
+        html += `<span style="color:var(--text-muted);padding:0 4px">…</span>`;
+      }
+    }
+
+    html += `<button class="page-btn" data-page="${state.currentPage + 1}" ${state.currentPage === totalPages ? "disabled" : ""}>Next →</button>`;
+    html += `</div>`;
+    return html;
+  }
+
+  function bindPaginationEvents() {
+    document.querySelectorAll(".page-btn:not([disabled])").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const page = parseInt(btn.dataset.page, 10);
+        if (page !== state.currentPage) {
+          state.currentPage = page;
+          loadAndRenderRankings();
+          document.getElementById("main-content").scrollIntoView({ behavior: "smooth" });
         }
       });
     });
   }
 
-  function showError(msg) {
-    content.innerHTML = `
-      <div class="state-container">
-        <div class="error-icon">⚠️</div>
-        <p class="error-msg">${escapeHtml(msg)}</p>
+  /* ════════════════════════════════════════════
+     COMPARE
+  ════════════════════════════════════════════ */
+  function toggleCompare(item, btn) {
+    const pid = item.product_id || item.product?.id || "";
+    const idx = state.compareList.findIndex(c => (c.product_id || c.product?.id) === pid);
+
+    if (idx >= 0) {
+      state.compareList.splice(idx, 1);
+      btn.textContent = "+ Compare";
+      btn.classList.remove("selected");
+    } else {
+      if (state.compareList.length >= MAX_COMPARE) {
+        alert(`You can compare up to ${MAX_COMPARE} products at a time.`);
+        return;
+      }
+      state.compareList.push(item);
+      btn.textContent = "✓ Added";
+      btn.classList.add("selected");
+    }
+    updateCompareBar();
+  }
+
+  function updateCompareBar() {
+    const bar      = document.getElementById("compare-bar");
+    const chipsEl  = document.getElementById("compare-chips");
+
+    if (!state.compareList.length) {
+      bar.classList.remove("visible");
+      return;
+    }
+    bar.classList.add("visible");
+
+    chipsEl.innerHTML = state.compareList.map(item => {
+      const pid   = item.product_id || item.product?.id || "";
+      const model = item.product?.model_name || "Product";
+      return `
+        <div class="compare-item-chip">
+          <span style="overflow:hidden;text-overflow:ellipsis">${esc(model)}</span>
+          <button class="compare-item-remove" data-pid="${esc(pid)}" title="Remove">✕</button>
+        </div>`;
+    }).join("");
+
+    chipsEl.querySelectorAll(".compare-item-remove").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const pid = btn.dataset.pid;
+        state.compareList = state.compareList.filter(c => (c.product_id || c.product?.id) !== pid);
+        // Update card button if visible
+        const cardBtn = document.querySelector(`.card-compare-btn[data-pid="${CSS.escape(pid)}"]`);
+        if (cardBtn) { cardBtn.textContent = "+ Compare"; cardBtn.classList.remove("selected"); }
+        updateCompareBar();
+      });
+    });
+  }
+
+  async function openCompareModal() {
+    const ids = state.compareList.map(c => c.product_id || c.product?.id).filter(Boolean);
+    if (ids.length < 2) { alert("Select at least 2 products to compare."); return; }
+
+    const modal = document.getElementById("compare-modal");
+    const body  = document.getElementById("compare-modal-body");
+    body.innerHTML = `<div class="state-container"><div class="spinner"></div><span class="state-msg">Loading comparison…</span></div>`;
+    openModal(modal);
+
+    try {
+      const data = await fetchCompare(ids);
+      renderCompareModal(data.products || []);
+    } catch (err) {
+      body.innerHTML = `<div class="state-container"><div style="font-size:32px">⚠️</div><p class="state-msg">Failed to load comparison data.</p></div>`;
+    }
+  }
+
+  function renderCompareModal(products) {
+    const body = document.getElementById("compare-modal-body");
+    if (!products.length) {
+      body.innerHTML = `<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">No comparison data</div></div>`;
+      return;
+    }
+
+    const maxScore = Math.max(...products.map(p => p.sentiment_score || 0));
+    const cols     = products.length;
+
+    const colsHTML = products.map(p => {
+      const score     = p.sentiment_score || 0;
+      const isWinner  = score === maxScore && cols > 1;
+      const pct       = Math.round(score * 100);
+      const total     = (p.positive_count || 0) + (p.negative_count || 0);
+
+      const prosHTML = (p.pros || []).map(pr =>
+        `<div class="compare-pc-item">✓ ${esc(pr.aspect)} <span style="color:var(--text-muted);font-size:10px">(${pr.count})</span></div>`
+      ).join("") || `<div class="compare-pc-item text-muted">No data</div>`;
+
+      const consHTML = (p.cons || []).map(cn =>
+        `<div class="compare-pc-item">✗ ${esc(cn.aspect)} <span style="color:var(--text-muted);font-size:10px">(${cn.count})</span></div>`
+      ).join("") || `<div class="compare-pc-item text-muted">No data</div>`;
+
+      const subredditsHTML = (p.subreddits || []).filter(Boolean).map(s =>
+        `<span style="font-size:10px;color:var(--accent)">r/${esc(s)}</span>`
+      ).join(" · ") || `<span style="font-size:10px;color:var(--text-muted)">—</span>`;
+
+      return `
+        <div class="compare-col${isWinner ? " winner" : ""}">
+          ${isWinner ? `<div class="winner-badge">🏆 Top Pick</div>` : ""}
+          <div class="compare-col-image">
+            ${p.image_url
+              ? `<img src="${esc(p.image_url)}" alt="${esc(p.model)}" loading="lazy">`
+              : `<span style="font-size:36px;opacity:0.2">📦</span>`}
+          </div>
+          <div>
+            <div class="compare-col-brand">${esc(p.brand || "")}</div>
+            <div class="compare-col-name">${esc(p.model || "")}</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">Sentiment Score</div>
+            <div class="compare-score-row">
+              <div class="compare-score-bar-wrap">
+                <div class="compare-score-bar" style="width:${pct}%"></div>
+              </div>
+              <span class="compare-score-val">${pct}%</span>
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:4px">${total.toLocaleString()} reviews</div>
+          </div>
+          ${p.price ? `<div class="card-price">$${parseFloat(p.price).toFixed(2)}<span>Amazon</span></div>` : ""}
+          <div class="compare-pc-section">
+            <div class="compare-pc-title pos">Pros</div>
+            ${prosHTML}
+          </div>
+          <div class="compare-pc-section">
+            <div class="compare-pc-title neg">Cons</div>
+            ${consHTML}
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em">Discussed on</div>
+            ${subredditsHTML}
+          </div>
+        </div>`;
+    }).join("");
+
+    body.innerHTML = `
+      <div class="compare-grid cols-${cols}">
+        ${colsHTML}
       </div>`;
   }
 
-  function escapeHtml(str) {
-    return String(str)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
+  /* ════════════════════════════════════════════
+     PRODUCT DETAIL MODAL
+  ════════════════════════════════════════════ */
+  async function openDetailModal(productId, rankingItem) {
+    if (!productId) return;
+    const modal = document.getElementById("detail-modal");
+    const body  = document.getElementById("detail-modal-body");
+    const title = document.getElementById("detail-modal-title");
+
+    const model = rankingItem?.product?.model_name || "Product Detail";
+    title.textContent = model;
+    body.innerHTML = `<div class="state-container"><div class="spinner"></div><span class="state-msg">Loading…</span></div>`;
+    openModal(modal);
+
+    try {
+      const [detailData, trendData] = await Promise.all([
+        fetchProductDetail(productId),
+        fetchTrend(productId),
+      ]);
+      renderDetailModal(detailData, trendData, rankingItem);
+    } catch (err) {
+      body.innerHTML = `<div class="state-container"><div style="font-size:32px">⚠️</div><p class="state-msg">Failed to load product details.</p></div>`;
+    }
   }
 
-  /* ── Fetch data ── */
-  const API_BASE = (function () {
-    // When served from the API itself, use the same origin.
-    // When embedded via <iframe>, the src attribute points to the API host.
-    return window.location.origin;
-  })();
+  function renderDetailModal(detailData, trendData, rankingItem) {
+    const body    = document.getElementById("detail-modal-body");
+    const product = detailData.product || {};
+    const reviews = detailData.reviews || [];
+    const aspects = detailData.aspects || [];
+    const history = trendData.history  || [];
 
-  fetch(`${API_BASE}/rankings?limit=6`)
-    .then(res => {
-      if (!res.ok) throw new Error(`API responded with status ${res.status}`);
-      return res.json();
-    })
-    .then(data => {
-      const rankings = (data && data.rankings) ? data.rankings : [];
-      if (rankings.length === 0) {
-        showError("No product data available right now. Please check back later.");
-        return;
-      }
-      renderCards(rankings);
-    })
-    .catch(err => {
-      console.error("[RedditRecs Widget]", err);
-      showError("Could not load recommendations. Please try again later.");
+    const ranking  = rankingItem || {};
+    const score    = ranking.sentiment_score || 0;
+    const posCount = ranking.positive_count  || 0;
+    const negCount = ranking.negative_count  || 0;
+    const neuCount = ranking.neutral_count   || 0;
+    const total    = posCount + negCount + neuCount;
+    const percentile = product.reddit_percentile || 0;
+
+    const pros = aspects.filter(a => a.sentiment === "positive").slice(0, 6);
+    const cons = aspects.filter(a => a.sentiment === "negative").slice(0, 6);
+
+    const prosHTML = pros.length
+      ? pros.map(p => `
+          <div class="pc-item">
+            <span class="pc-icon">✓</span>
+            <span>${esc(p.aspect_name)}</span>
+            <span class="pc-count">${(p.positive_count || 0).toLocaleString()} mentions</span>
+          </div>`).join("")
+      : `<div class="pc-item text-muted">No aspect data available</div>`;
+
+    const consHTML = cons.length
+      ? cons.map(c => `
+          <div class="pc-item">
+            <span class="pc-icon">✗</span>
+            <span>${esc(c.aspect_name)}</span>
+            <span class="pc-count">${(c.negative_count || 0).toLocaleString()} mentions</span>
+          </div>`).join("")
+      : `<div class="pc-item text-muted">No aspect data available</div>`;
+
+    const reviewsHTML = reviews.length
+      ? reviews.map(r => `
+          <div class="review-card">
+            <div class="review-header">
+              <div class="review-meta">
+                ${r.subreddit ? `<span class="review-sub">r/${esc(r.subreddit)}</span>` : ""}
+                ${r.created_at ? `<span class="review-date">${formatDate(r.created_at)}</span>` : ""}
+              </div>
+              <span class="sentiment-badge ${esc(r.sentiment || "neutral")}">${esc(r.sentiment || "neutral")}</span>
+            </div>
+            <p class="review-text">${esc(r.verbatim || "")}</p>
+          </div>`).join("")
+      : `<div class="empty-state"><div class="empty-icon">💬</div><div class="empty-title">No reviews yet</div></div>`;
+
+    const hasTrend = history.length > 1;
+
+    body.innerHTML = `
+      <!-- Hero -->
+      <div class="detail-hero">
+        <div class="detail-image-wrap">
+          ${product.image_url
+            ? `<img src="${esc(product.image_url)}" alt="${esc(product.model_name || "")}" loading="lazy">`
+            : `<span style="font-size:56px;opacity:0.2">📦</span>`}
+        </div>
+        <div class="detail-info">
+          <div>
+            <div class="detail-brand">${esc(product.brand || "")}</div>
+            <div class="detail-name">${esc(product.model_name || "")}</div>
+            ${product.category ? `<div class="detail-category">${esc(product.category)}</div>` : ""}
+          </div>
+          <div class="detail-stats">
+            <div class="stat-box">
+              <div class="stat-value ${scoreClass(score) === "high" ? "positive" : scoreClass(score) === "low" ? "negative" : ""}">${scorePct(score)}</div>
+              <div class="stat-label">Positive</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-value">${total.toLocaleString()}</div>
+              <div class="stat-label">Reviews</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-value positive">${posCount.toLocaleString()}</div>
+              <div class="stat-label">Positive</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-value negative">${negCount.toLocaleString()}</div>
+              <div class="stat-label">Negative</div>
+            </div>
+            ${percentile ? `
+            <div class="stat-box">
+              <div class="stat-value">${percentile}th</div>
+              <div class="stat-label">Percentile</div>
+            </div>` : ""}
+          </div>
+          ${product.amazon_price ? `<div class="detail-price">$${parseFloat(product.amazon_price).toFixed(2)} <span style="font-size:12px;color:var(--text-muted);font-weight:400">on Amazon</span></div>` : ""}
+          <div class="detail-actions">
+            ${product.amazon_url
+              ? `<a href="${esc(product.amazon_url)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">View on Amazon ↗</a>`
+              : ""}
+            <button class="btn btn-secondary btn-sm" id="detail-add-compare">+ Add to Compare</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="overview">Overview</button>
+        <button class="tab-btn" data-tab="reviews">Reviews (${reviews.length})</button>
+        ${hasTrend ? `<button class="tab-btn" data-tab="trend">Sentiment Trend</button>` : ""}
+      </div>
+
+      <!-- Overview tab -->
+      <div class="tab-panel active" id="tab-overview">
+        <div class="pros-cons-grid">
+          <div class="pros-box">
+            <div class="pc-title">👍 Pros</div>
+            ${prosHTML}
+          </div>
+          <div class="cons-box">
+            <div class="pc-title">👎 Cons</div>
+            ${consHTML}
+          </div>
+        </div>
+        ${sentimentBarHTML(posCount, negCount, neuCount)}
+      </div>
+
+      <!-- Reviews tab -->
+      <div class="tab-panel" id="tab-reviews">
+        <div class="review-list">${reviewsHTML}</div>
+      </div>
+
+      ${hasTrend ? `
+      <!-- Trend tab -->
+      <div class="tab-panel" id="tab-trend">
+        <div class="trend-wrap">
+          <div class="trend-title">Sentiment Score Over Time</div>
+          <div class="trend-chart-wrap">
+            <canvas id="trend-chart"></canvas>
+          </div>
+        </div>
+      </div>` : ""}`;
+
+    // Tab switching
+    body.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        body.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        body.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+        btn.classList.add("active");
+        const panel = body.querySelector(`#tab-${btn.dataset.tab}`);
+        if (panel) {
+          panel.classList.add("active");
+          if (btn.dataset.tab === "trend") drawTrendChart(history);
+        }
+      });
     });
+
+    // Add to compare
+    const addCompareBtn = body.querySelector("#detail-add-compare");
+    if (addCompareBtn && rankingItem) {
+      const pid = rankingItem.product_id || rankingItem.product?.id;
+      const alreadyIn = state.compareList.some(c => (c.product_id || c.product?.id) === pid);
+      if (alreadyIn) { addCompareBtn.textContent = "✓ In Compare"; addCompareBtn.disabled = true; }
+      addCompareBtn.addEventListener("click", () => {
+        if (state.compareList.length >= MAX_COMPARE) { alert(`Max ${MAX_COMPARE} products.`); return; }
+        state.compareList.push(rankingItem);
+        addCompareBtn.textContent = "✓ In Compare";
+        addCompareBtn.disabled = true;
+        updateCompareBar();
+        // Update card button if visible
+        const cardBtn = document.querySelector(`.card-compare-btn[data-pid="${CSS.escape(pid)}"]`);
+        if (cardBtn) { cardBtn.textContent = "✓ Added"; cardBtn.classList.add("selected"); }
+      });
+    }
+  }
+
+  function drawTrendChart(history) {
+    destroyChart("trend-chart");
+    const canvas = document.getElementById("trend-chart");
+    if (!canvas || !history.length) return;
+
+    const labels = history.map(h => h.date ? formatDate(h.date) : "");
+    const scores = history.map(h => Math.round((h.sentiment_score || 0) * 100));
+    const isDark  = document.documentElement.getAttribute("data-theme") !== "light";
+    const gridColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+    const textColor = isDark ? "#64748b" : "#94a3b8";
+
+    state.activeCharts["trend-chart"] = new Chart(canvas, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [{
+          label: "Sentiment %",
+          data: scores,
+          borderColor: "#6c63ff",
+          backgroundColor: "rgba(108,99,255,0.12)",
+          borderWidth: 2,
+          pointRadius: 4,
+          pointBackgroundColor: "#6c63ff",
+          fill: true,
+          tension: 0.35,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: { label: ctx => ` ${ctx.parsed.y}% positive` }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: textColor, font: { size: 10 }, maxRotation: 30 },
+            grid:  { color: gridColor },
+          },
+          y: {
+            min: 0, max: 100,
+            ticks: { color: textColor, font: { size: 10 }, callback: v => v + "%" },
+            grid:  { color: gridColor },
+          }
+        }
+      }
+    });
+  }
+
+  /* ════════════════════════════════════════════
+     SEARCH
+  ════════════════════════════════════════════ */
+  function bindSearch() {
+    const input    = document.getElementById("search-input");
+    const dropdown = document.getElementById("search-dropdown");
+
+    input.addEventListener("input", () => {
+      clearTimeout(state.searchTimer);
+      const q = input.value.trim();
+      if (q.length < 2) { dropdown.classList.add("hidden"); return; }
+      state.searchTimer = setTimeout(async () => {
+        const results = await fetchSearch(q);
+        renderSearchDropdown(results, dropdown);
+      }, 300);
+    });
+
+    input.addEventListener("keydown", e => {
+      if (e.key === "Escape") { dropdown.classList.add("hidden"); input.blur(); }
+    });
+
+    document.addEventListener("click", e => {
+      if (!document.getElementById("search-wrap").contains(e.target)) {
+        dropdown.classList.add("hidden");
+      }
+    });
+  }
+
+  function renderSearchDropdown(results, dropdown) {
+    if (!results.length) {
+      dropdown.innerHTML = `<div style="padding:12px 14px;font-size:13px;color:var(--text-muted)">No results found</div>`;
+      dropdown.classList.remove("hidden");
+      return;
+    }
+    dropdown.innerHTML = results.slice(0, 8).map(r => {
+      const score = r.ranking?.sentiment_score;
+      const pct   = score != null ? Math.round(score * 100) + "%" : "";
+      return `
+        <div class="search-result-item" data-product-id="${esc(r.id)}">
+          <div>
+            <div class="search-result-name">${esc(r.model_name || "")}</div>
+            <div class="search-result-brand">${esc(r.brand || "")} · ${esc(r.category || "")}</div>
+          </div>
+          ${pct ? `<span class="search-result-score ${scoreClass(score)}" style="color:var(--${scoreClass(score) === "high" ? "positive" : scoreClass(score) === "low" ? "negative" : "warning"})">${pct}</span>` : ""}
+        </div>`;
+    }).join("");
+
+    dropdown.querySelectorAll(".search-result-item").forEach(item => {
+      item.addEventListener("click", () => {
+        const pid = item.dataset.productId;
+        dropdown.classList.add("hidden");
+        document.getElementById("search-input").value = "";
+        // Build a minimal ranking item for the detail modal
+        const result = results.find(r => r.id === pid);
+        const fakeRanking = {
+          product_id: pid,
+          product: result,
+          sentiment_score: result?.ranking?.sentiment_score || 0,
+          positive_count:  result?.ranking?.positive_count  || 0,
+          negative_count:  result?.ranking?.negative_count  || 0,
+          neutral_count:   result?.ranking?.neutral_count   || 0,
+        };
+        openDetailModal(pid, fakeRanking);
+      });
+    });
+
+    dropdown.classList.remove("hidden");
+  }
+
+  /* ════════════════════════════════════════════
+     MODAL HELPERS
+  ════════════════════════════════════════════ */
+  function openModal(modalEl) {
+    modalEl.classList.add("open");
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeModal(modalEl) {
+    modalEl.classList.remove("open");
+    document.body.style.overflow = "";
+    destroyAllCharts();
+  }
+
+  function bindModalEvents() {
+    // Detail modal
+    document.getElementById("detail-modal-close").addEventListener("click", () => {
+      closeModal(document.getElementById("detail-modal"));
+    });
+    document.getElementById("detail-modal").addEventListener("click", e => {
+      if (e.target === e.currentTarget) closeModal(e.currentTarget);
+    });
+
+    // Compare modal
+    document.getElementById("compare-modal-close").addEventListener("click", () => {
+      closeModal(document.getElementById("compare-modal"));
+    });
+    document.getElementById("compare-modal").addEventListener("click", e => {
+      if (e.target === e.currentTarget) closeModal(e.currentTarget);
+    });
+
+    // Compare bar buttons
+    document.getElementById("compare-run-btn").addEventListener("click", openCompareModal);
+    document.getElementById("compare-clear-btn").addEventListener("click", () => {
+      state.compareList = [];
+      document.querySelectorAll(".card-compare-btn.selected").forEach(btn => {
+        btn.textContent = "+ Compare";
+        btn.classList.remove("selected");
+      });
+      updateCompareBar();
+    });
+
+    // Keyboard ESC
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape") {
+        closeModal(document.getElementById("detail-modal"));
+        closeModal(document.getElementById("compare-modal"));
+      }
+    });
+  }
+
+  /* ════════════════════════════════════════════
+     THEME TOGGLE
+  ════════════════════════════════════════════ */
+  function bindThemeToggle() {
+    const btn       = document.getElementById("theme-btn");
+    const iconDark  = document.getElementById("theme-icon-dark");
+    const iconLight = document.getElementById("theme-icon-light");
+
+    // Restore saved preference
+    const saved = localStorage.getItem("widget-theme");
+    if (saved) applyTheme(saved);
+
+    btn.addEventListener("click", () => {
+      const current = document.documentElement.getAttribute("data-theme") || "dark";
+      const next    = current === "dark" ? "light" : "dark";
+      applyTheme(next);
+      localStorage.setItem("widget-theme", next);
+    });
+
+    function applyTheme(theme) {
+      document.documentElement.setAttribute("data-theme", theme);
+      if (theme === "light") {
+        iconDark.classList.add("hidden");
+        iconLight.classList.remove("hidden");
+      } else {
+        iconDark.classList.remove("hidden");
+        iconLight.classList.add("hidden");
+      }
+    }
+  }
+
+  /* ════════════════════════════════════════════
+     FILTER EVENTS
+  ════════════════════════════════════════════ */
+  function bindFilterEvents() {
+    document.getElementById("filter-category").addEventListener("change", e => {
+      state.filters.category = e.target.value;
+      state.currentPage = 1;
+      loadAndRenderRankings();
+    });
+
+    document.getElementById("filter-subreddit").addEventListener("change", e => {
+      state.filters.subreddit = e.target.value;
+      state.currentPage = 1;
+      loadAndRenderRankings();
+    });
+  }
+
+  /* ════════════════════════════════════════════
+     LOAD & RENDER RANKINGS
+  ════════════════════════════════════════════ */
+  async function loadAndRenderRankings() {
+    const main = document.getElementById("main-content");
+    main.innerHTML = `<div class="state-container"><div class="spinner"></div><span class="state-msg">Loading…</span></div>`;
+    try {
+      await fetchRankings();
+      renderGrid();
+    } catch (err) {
+      console.error("[Widget]", err);
+      main.innerHTML = `
+        <div class="state-container">
+          <div style="font-size:36px">⚠️</div>
+          <p class="state-msg">Could not load recommendations. Please try again later.</p>
+          <button class="btn btn-secondary btn-sm" onclick="location.reload()">Retry</button>
+        </div>`;
+    }
+  }
+
+  /* ════════════════════════════════════════════
+     BOOT
+  ════════════════════════════════════════════ */
+  async function boot() {
+    // Anti-embedding check
+    if (!isEmbeddingAllowed()) {
+      appEl.innerHTML = `
+        <div class="blocked">
+          <div style="font-size:48px">🚫</div>
+          <h2>Embedding Not Allowed</h2>
+          <p>This widget may only be embedded on <strong>airlucent.com</strong>.</p>
+        </div>`;
+      return;
+    }
+
+    // Build shell
+    buildShell();
+
+    // Bind all events
+    bindThemeToggle();
+    bindModalEvents();
+    bindSearch();
+
+    // Fetch supporting data in parallel
+    await Promise.allSettled([fetchCategories(), fetchSubreddits()]);
+    populateFilters();
+    bindFilterEvents();
+
+    // Load initial rankings
+    await loadAndRenderRankings();
+  }
+
+  boot();
 
 })();
 </script>
