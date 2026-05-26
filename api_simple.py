@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 import requests
 import os
 import logging
@@ -386,6 +387,22 @@ def list_routes():
             "methods": list(route.methods) if hasattr(route, "methods") else []
         })
     return {"routes": routes}
+
+# ---------- Widget endpoint with CSP headers ----------
+@app.get("/widget.html")
+def serve_widget():
+    try:
+        with open("widget.html", "r") as f:
+            content = f.read()
+        return HTMLResponse(
+            content,
+            headers={
+                "Content-Security-Policy": "frame-ancestors 'self' https://airlucent.com",
+                "X-Frame-Options": "SAMEORIGIN"
+            }
+        )
+    except FileNotFoundError:
+        return {"error": "Widget file not found"}
 
 if __name__ == "__main__":
     import uvicorn
