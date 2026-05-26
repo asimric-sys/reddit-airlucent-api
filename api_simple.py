@@ -392,7 +392,11 @@ def list_routes():
 @app.get("/widget.html")
 async def get_widget():
     try:
-        with open("widget.html", "r", encoding="utf-8") as f:
+        # Get the directory where api_simple.py is located
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        widget_path = os.path.join(current_dir, "widget.html")
+
+        with open(widget_path, "r", encoding="utf-8") as f:
             content = f.read()
         return HTMLResponse(
             content,
@@ -402,7 +406,7 @@ async def get_widget():
             }
         )
     except FileNotFoundError:
-        return {"error": "Widget file not found"}
+        return {"error": f"Widget file not found at {widget_path}"}
 
 if __name__ == "__main__":
     import uvicorn
