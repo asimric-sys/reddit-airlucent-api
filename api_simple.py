@@ -1,11 +1,11 @@
-from typing import Optional, List
 from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 import requests
 import os
 import logging
 from dotenv import load_dotenv
+from pydantic import BaseModel
+from typing import Optional
 
 load_dotenv()
 
@@ -42,39 +42,25 @@ def supabase_get(endpoint, params=None):
         return []
     return resp.json()
 
-def supabase_post(endpoint, payload):
+def supabase_post(endpoint, data):
     url = f"{SUPABASE_URL}/rest/v1/{endpoint}"
     headers = {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
-        "Content-Type": "application/json",
-        "Prefer": "return=representation"
+        "Content-Type": "application/json"
     }
-    resp = requests.post(url, headers=headers, json=payload)
-    if resp.status_code not in (200, 201):
+    resp = requests.post(url, headers=headers, json=data)
+    if resp.status_code != 201:
         logger.warning(f"Supabase POST error {resp.status_code} for {endpoint}: {resp.text}")
         return None
-    return resp.json()
+    return resp
 
 # ---------- Root ----------
 @app.get("/")
 def root():
-    return {
-        "message": "RedditRecs API is running",
-        "endpoints": [
-            "/rankings",
-            "/product/{product_id}",
-            "/compare",
-            "/trend/{product_id}",
-            "/search",
-            "/brands",
-            "/categories",
-            "/usecase/{case}",
-            "/user_review"
-        ]
-    }
+    return {"message": "RedditRecs API is running", "endpoints": ["/rankings", "/product/{product_id}", "/search", "/brands", "/categories", "/usecase/{case}", "/compare", "/trend/{product_id}", "/user_review"]}
 
-# ---------- Rankings with category filter and pagination ----------
+# ---------- Rankings (existing) ----------
 @app.get("/rankings")
 def get_rankings(limit: int = 20, offset: int = 0, category: str = None, subreddit: str = None):
     if category:
@@ -111,7 +97,7 @@ def get_rankings(limit: int = 20, offset: int = 0, category: str = None, subredd
         r["product"] = product_map.get(r["product_id"], {})
     return {"rankings": rankings, "limit": limit, "offset": offset}
 
-# ---------- Product details (includes aspects + Reddit percentile) ----------
+# ---------- Product details (with aspects and percentile) ----------
 @app.get("/product/{product_id}")
 def product_details(product_id: str):
     product = supabase_get("products", params={"id": f"eq.{product_id}"})
@@ -119,27 +105,20 @@ def product_details(product_id: str):
         return {"error": "Product not found"}
     reviews = supabase_get("reviews", params={"product_id": f"eq.{product_id}", "order": "created_at.desc", "limit": 10})
     aspects = supabase_get("product_aspects", params={"product_id": f"eq.{product_id}"})
+    # Compute percentile
+    all_scores = supabase_get("rankings", params={"select": "sentiment_score", "order": "sentiment_score.asc"})
+    product_rankings = supabase_get("rankings", params={"product_id": f"eq.{product_id}"})
+    product_score = product_rankings[0]["sentiment_score"] if product_rankings else 0
+    scores = [s["sentiment_score"] for s in all_scores if s["sentiment_score"] is not None]
+    if scores:
+        rank = sum(1 for s in scores if s < product_score) + 1
+        percentile = int((rank / len(scores)) * 100)
+    else:
+        percentile = 0
+    product[0]["reddit_percentile"] = percentile
+    return {"product": product[0], "reviews": reviews, "aspects": aspects}
 
-    # Reddit percentile: rank this product's sentiment_score against all others
-    all_rankings = supabase_get("rankings", params={"select": "product_id,sentiment_score", "order": "sentiment_score.asc"})
-    reddit_percentile = None
-    if all_rankings:
-        scores = [r.get("sentiment_score") for r in all_rankings if r.get("sentiment_score") is not None]
-        this_ranking = supabase_get("rankings", params={"product_id": f"eq.{product_id}", "select": "sentiment_score"})
-        if this_ranking and scores:
-            this_score = this_ranking[0].get("sentiment_score")
-            if this_score is not None:
-                below = sum(1 for s in scores if s < this_score)
-                reddit_percentile = round((below / len(scores)) * 100)
-
-    return {
-        "product": product[0],
-        "reviews": reviews,
-        "aspects": aspects,
-        "reddit_percentile": reddit_percentile
-    }
-
-# ---------- Search endpoint ----------
+# ---------- Search ----------
 @app.get("/search")
 def search_products(q: str = Query(..., min_length=2)):
     params = {
@@ -196,7 +175,7 @@ def get_brands(category: Optional[str] = None):
     result.sort(key=lambda x: x["positive_percent"], reverse=True)
     return {"brands": result}
 
-# ---------- List categories ----------
+# ---------- Categories ----------
 @app.get("/categories")
 def get_categories():
     products = supabase_get("products", params={"select": "category"})
@@ -206,7 +185,7 @@ def get_categories():
             categories.add(p["category"])
     return {"categories": sorted(list(categories))}
 
-# ---------- Use‑case endpoint (keyword matching) ----------
+# ---------- Use-case ----------
 USECASE_KEYWORDS = {
     "smoke": ["smoke", "cigarette", "cannabis", "odor", "smell", "cooking smell", "wildfire"],
     "pets": ["pet", "dog", "cat", "dander", "fur", "hair", "allergy", "shedding"],
@@ -260,136 +239,60 @@ def get_usecase(case: str, limit: int = 10):
     else:
         return {"usecase": case, "recommendations": []}
 
-# ---------- Compare endpoint (2–3 products side-by-side) ----------
+# ---------- Comparison Tool ----------
 @app.get("/compare")
-def compare_products(ids: str = Query(..., description="Comma-separated product IDs (2–3)")):
-    product_ids = [pid.strip() for pid in ids.split(",") if pid.strip()]
+def compare_products(ids: str = Query(...)):
+    product_ids = [pid.strip() for pid in ids.split(",")]
     if len(product_ids) < 2 or len(product_ids) > 3:
-        return {"error": "Please provide 2 or 3 comma-separated product IDs"}
-
-    products = supabase_get("products", params={"id": f"in.({','.join(product_ids)})"})
-    if not products:
-        return {"error": "No products found for the given IDs"}
-    product_map = {p["id"]: p for p in products}
-
-    rankings = supabase_get("rankings", params={"product_id": f"in.({','.join(product_ids)})"})
-    ranking_map = {r["product_id"]: r for r in rankings}
-
-    aspects = supabase_get("product_aspects", params={"product_id": f"in.({','.join(product_ids)})"})
-    aspects_map: dict = {}
-    for a in aspects:
-        pid = a["product_id"]
-        aspects_map.setdefault(pid, []).append(a)
-
-    reviews = supabase_get("reviews", params={
-        "product_id": f"in.({','.join(product_ids)})",
-        "select": "product_id,sentiment,verbatim,subreddit",
-        "limit": 200
-    })
-    subreddits_map: dict = {}
-    pros_map: dict = {}
-    cons_map: dict = {}
-    for rev in reviews:
-        pid = rev["product_id"]
-        if rev.get("subreddit"):
-            subreddits_map.setdefault(pid, set()).add(rev["subreddit"])
-        verbatim = rev.get("verbatim", "")
-        if rev.get("sentiment") == "positive" and verbatim:
-            pros_map.setdefault(pid, []).append(verbatim[:120])
-        elif rev.get("sentiment") == "negative" and verbatim:
-            cons_map.setdefault(pid, []).append(verbatim[:120])
-
-    comparison = []
+        return {"error": "Please provide 2 or 3 product IDs"}
+    products_data = []
     for pid in product_ids:
-        prod = product_map.get(pid)
-        if not prod:
-            comparison.append({"product_id": pid, "error": "Not found"})
+        product = supabase_get("products", params={"id": f"eq.{pid}"})
+        if not product:
             continue
-        rank = ranking_map.get(pid, {})
-        comparison.append({
-            "product_id": pid,
-            "brand": prod.get("brand"),
-            "model_name": prod.get("model_name"),
-            "category": prod.get("category"),
-            "sentiment_score": rank.get("sentiment_score"),
-            "rank": rank.get("rank"),
-            "reddit_percentile": None,  # populated below
-            "pros": pros_map.get(pid, [])[:3],
-            "cons": cons_map.get(pid, [])[:3],
-            "subreddits": sorted(subreddits_map.get(pid, set())),
-            "aspects": aspects_map.get(pid, [])
+        ranking = supabase_get("rankings", params={"product_id": f"eq.{pid}"})
+        aspects = supabase_get("product_aspects", params={"product_id": f"eq.{pid}"})
+        pros = [a for a in aspects if a["sentiment"] == "positive"][:3]
+        cons = [a for a in aspects if a["sentiment"] == "negative"][:3]
+        products_data.append({
+            "id": pid,
+            "brand": product[0]["brand"],
+            "model": product[0]["model_name"],
+            "sentiment_score": ranking[0]["sentiment_score"] if ranking else None,
+            "positive_count": ranking[0]["positive_count"] if ranking else 0,
+            "negative_count": ranking[0]["negative_count"] if ranking else 0,
+            "price": product[0].get("amazon_price"),
+            "image_url": product[0].get("image_url"),
+            "pros": [{"aspect": p["aspect_name"], "count": p["positive_count"]} for p in pros],
+            "cons": [{"aspect": c["aspect_name"], "count": c["negative_count"]} for c in cons],
+            "subreddits": list(set(r.get("subreddit") for r in supabase_get("reviews", params={"product_id": f"eq.{pid}", "select": "subreddit"})))
         })
+    return {"products": products_data}
 
-    # Compute reddit_percentile for each compared product
-    all_rankings = supabase_get("rankings", params={"select": "sentiment_score", "order": "sentiment_score.asc"})
-    all_scores = [r.get("sentiment_score") for r in all_rankings if r.get("sentiment_score") is not None]
-    if all_scores:
-        for item in comparison:
-            score = item.get("sentiment_score")
-            if score is not None:
-                below = sum(1 for s in all_scores if s < score)
-                item["reddit_percentile"] = round((below / len(all_scores)) * 100)
-
-    return {"comparison": comparison}
-
-
-# ---------- Sentiment trend for a product ----------
+# ---------- Sentiment Trend ----------
 @app.get("/trend/{product_id}")
-def sentiment_trend(product_id: str):
-    product = supabase_get("products", params={"id": f"eq.{product_id}", "select": "id,brand,model_name"})
-    if not product:
-        return {"error": "Product not found"}
+def get_trend(product_id: str, months: int = 12):
+    history = supabase_get("sentiment_history", params={"product_id": f"eq.{product_id}", "order": "date.asc", "limit": months})
+    return {"product_id": product_id, "history": history}
 
-    history = supabase_get("sentiment_history", params={
-        "product_id": f"eq.{product_id}",
-        "order": "recorded_at.asc",
-        "select": "recorded_at,sentiment_score,positive_count,negative_count,neutral_count"
-    })
-
-    return {
-        "product_id": product_id,
-        "product": product[0],
-        "trend": history
-    }
-
-
-# ---------- UserReview model + POST endpoint ----------
+# ---------- User‑Contributed Review ----------
 class UserReview(BaseModel):
     product_id: str
-    reviewer_name: Optional[str] = None
-    rating: Optional[int] = None          # 1–5
+    username: str
+    email: Optional[str] = None
+    sentiment: str
     verbatim: str
-    sentiment: Optional[str] = None       # "positive" | "negative" | "neutral"
-    source: Optional[str] = "user"
-
 
 @app.post("/user_review")
 def submit_user_review(review: UserReview):
-    valid_sentiments = {"positive", "negative", "neutral", None}
-    if review.sentiment not in valid_sentiments:
-        return {"error": f"Invalid sentiment '{review.sentiment}'. Must be one of: positive, negative, neutral"}
-
-    if review.rating is not None and not (1 <= review.rating <= 5):
-        return {"error": "Rating must be between 1 and 5"}
-
-    product = supabase_get("products", params={"id": f"eq.{review.product_id}", "select": "id"})
-    if not product:
-        return {"error": f"Product '{review.product_id}' not found"}
-
-    payload = {
-        "product_id": review.product_id,
-        "reviewer_name": review.reviewer_name,
-        "rating": review.rating,
-        "verbatim": review.verbatim,
-        "sentiment": review.sentiment,
-        "source": review.source or "user",
-        "verified": False
-    }
-    result = supabase_post("user_reviews", payload)
-    if result is None:
-        return {"error": "Failed to save review. Please try again later."}
-    return {"success": True, "review": result[0] if isinstance(result, list) else result}
-
+    if review.sentiment not in ["positive", "negative", "neutral"]:
+        return {"error": "Invalid sentiment"}
+    data = review.dict()
+    data["verified"] = False
+    resp = supabase_post("user_reviews", data)
+    if resp is None:
+        return {"error": "Failed to submit review"}
+    return {"message": "Review submitted, awaiting verification"}
 
 # ---------- Debug routes ----------
 @app.get("/debug/routes")
