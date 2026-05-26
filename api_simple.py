@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import requests
 import os
 import logging
+import json
+import redis
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from typing import Optional
@@ -11,6 +13,32 @@ load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+REDIS_URL = os.getenv("REDIS_URL")  # Railway sets this automatically
+
+# Redis setup (cache for 15 minutes)
+redis_client = None
+if REDIS_URL:
+    try:
+        redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+        redis_client.ping()
+        logging.info("Redis connected successfully")
+    except Exception as e:
+        logging.warning(f"Redis connection failed: {e}. Caching disabled.")
+else:
+    logging.warning("REDIS_URL not set. Caching disabled.")
+
+CACHE_TTL = 900  # 15 seconds? no, 15 minutes = 900 seconds
+
+def cache_get(key):
+    if redis_client:
+        data = redis_client.get(key)
+        if data:
+            return json.loads(data)
+    return None
+
+def cache_set(key, value, ttl=CACHE_TTL):
+    if redis_client:
+        redis_client.setex(key, ttl, json.dumps(value))
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("uvicorn")
@@ -58,11 +86,17 @@ def supabase_post(endpoint, data):
 # ---------- Root ----------
 @app.get("/")
 def root():
-    return {"message": "RedditRecs API is running", "endpoints": ["/rankings", "/product/{product_id}", "/search", "/brands", "/categories", "/usecase/{case}", "/compare", "/trend/{product_id}", "/user_review"]}
+    return {"message": "RedditRecs API is running (Redis caching enabled)", "endpoints": ["/rankings", "/product/{product_id}", "/search", "/brands", "/categories", "/usecase/{case}", "/compare", "/trend/{product_id}", "/user_review"]}
 
-# ---------- Rankings (existing) ----------
+# ---------- Rankings (cached) ----------
 @app.get("/rankings")
 def get_rankings(limit: int = 20, offset: int = 0, category: str = None, subreddit: str = None):
+    cache_key = f"rankings:{limit}:{offset}:{category or ''}:{subreddit or ''}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        logger.info(f"Cache HIT for {cache_key}")
+        return cached
+    logger.info(f"Cache MISS for {cache_key}")
     if category:
         product_params = {"category": f"eq.{category}", "select": "id"}
         products_in_cat = supabase_get("products", params=product_params)
@@ -95,16 +129,25 @@ def get_rankings(limit: int = 20, offset: int = 0, category: str = None, subredd
     product_map = {p["id"]: p for p in products}
     for r in rankings:
         r["product"] = product_map.get(r["product_id"], {})
-    return {"rankings": rankings, "limit": limit, "offset": offset}
+    response = {"rankings": rankings, "limit": limit, "offset": offset}
+    cache_set(cache_key, response)
+    return response
 
-# ---------- Product details (with aspects and percentile) ----------
+# ---------- Product details (cached) ----------
 @app.get("/product/{product_id}")
 def product_details(product_id: str):
+    cache_key = f"product:{product_id}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        logger.info(f"Cache HIT for {cache_key}")
+        return cached
+    logger.info(f"Cache MISS for {cache_key}")
     product = supabase_get("products", params={"id": f"eq.{product_id}"})
     if not product:
         return {"error": "Product not found"}
     reviews = supabase_get("reviews", params={"product_id": f"eq.{product_id}", "order": "created_at.desc", "limit": 10})
     aspects = supabase_get("product_aspects", params={"product_id": f"eq.{product_id}"})
+    
     # Compute percentile
     all_scores = supabase_get("rankings", params={"select": "sentiment_score", "order": "sentiment_score.asc"})
     product_rankings = supabase_get("rankings", params={"product_id": f"eq.{product_id}"})
@@ -116,11 +159,19 @@ def product_details(product_id: str):
     else:
         percentile = 0
     product[0]["reddit_percentile"] = percentile
-    return {"product": product[0], "reviews": reviews, "aspects": aspects}
+    response = {"product": product[0], "reviews": reviews, "aspects": aspects}
+    cache_set(cache_key, response)
+    return response
 
-# ---------- Search ----------
+# ---------- Search (cached) ----------
 @app.get("/search")
 def search_products(q: str = Query(..., min_length=2)):
+    cache_key = f"search:{q}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        logger.info(f"Cache HIT for {cache_key}")
+        return cached
+    logger.info(f"Cache MISS for {cache_key}")
     params = {
         "or": f"(brand.ilike.*{q}*,model_name.ilike.*{q}*)",
         "select": "id,brand,model_name,category"
@@ -132,11 +183,19 @@ def search_products(q: str = Query(..., min_length=2)):
         rank_map = {r["product_id"]: r for r in rankings}
         for p in results:
             p["ranking"] = rank_map.get(p["id"], {})
-    return {"query": q, "results": results}
+    response = {"query": q, "results": results}
+    cache_set(cache_key, response)
+    return response
 
-# ---------- Brand stats ----------
+# ---------- Brand stats (cached) ----------
 @app.get("/brands")
 def get_brands(category: Optional[str] = None):
+    cache_key = f"brands:{category or ''}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        logger.info(f"Cache HIT for {cache_key}")
+        return cached
+    logger.info(f"Cache MISS for {cache_key}")
     if category:
         products = supabase_get("products", params={"category": f"eq.{category}", "select": "id,brand"})
         if not products:
@@ -173,19 +232,29 @@ def get_brands(category: Optional[str] = None):
             "total_reviews": total
         })
     result.sort(key=lambda x: x["positive_percent"], reverse=True)
-    return {"brands": result}
+    response = {"brands": result}
+    cache_set(cache_key, response)
+    return response
 
-# ---------- Categories ----------
+# ---------- Categories (cached) ----------
 @app.get("/categories")
 def get_categories():
+    cache_key = "categories"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        logger.info(f"Cache HIT for {cache_key}")
+        return cached
+    logger.info(f"Cache MISS for {cache_key}")
     products = supabase_get("products", params={"select": "category"})
     categories = set()
     for p in products:
         if p.get("category"):
             categories.add(p["category"])
-    return {"categories": sorted(list(categories))}
+    response = {"categories": sorted(list(categories))}
+    cache_set(cache_key, response)
+    return response
 
-# ---------- Use-case ----------
+# ---------- Use-case (not cached, can be changed later) ----------
 USECASE_KEYWORDS = {
     "smoke": ["smoke", "cigarette", "cannabis", "odor", "smell", "cooking smell", "wildfire"],
     "pets": ["pet", "dog", "cat", "dander", "fur", "hair", "allergy", "shedding"],
@@ -239,7 +308,7 @@ def get_usecase(case: str, limit: int = 10):
     else:
         return {"usecase": case, "recommendations": []}
 
-# ---------- Comparison Tool ----------
+# ---------- Comparison (not cached because ids vary) ----------
 @app.get("/compare")
 def compare_products(ids: str = Query(...)):
     product_ids = [pid.strip() for pid in ids.split(",")]
@@ -269,13 +338,19 @@ def compare_products(ids: str = Query(...)):
         })
     return {"products": products_data}
 
-# ---------- Sentiment Trend ----------
+# ---------- Sentiment Trend (cached, but short TTL) ----------
 @app.get("/trend/{product_id}")
 def get_trend(product_id: str, months: int = 12):
+    cache_key = f"trend:{product_id}:{months}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return cached
     history = supabase_get("sentiment_history", params={"product_id": f"eq.{product_id}", "order": "date.asc", "limit": months})
-    return {"product_id": product_id, "history": history}
+    response = {"product_id": product_id, "history": history}
+    cache_set(cache_key, response, ttl=3600)  # 1 hour cache for trends
+    return response
 
-# ---------- User‑Contributed Review ----------
+# ---------- User review submission (no cache) ----------
 class UserReview(BaseModel):
     product_id: str
     username: str
@@ -292,6 +367,13 @@ def submit_user_review(review: UserReview):
     resp = supabase_post("user_reviews", data)
     if resp is None:
         return {"error": "Failed to submit review"}
+    # Invalidate relevant caches
+    cache_keys_to_invalidate = [f"rankings:*", f"product:{review.product_id}", f"brands:*", f"categories", f"search:*"]
+    for key_pattern in cache_keys_to_invalidate:
+        # For simplicity, delete keys by pattern (Redis doesn't support pattern delete natively, but we can iterate)
+        if redis_client:
+            for key in redis_client.scan_iter(key_pattern):
+                redis_client.delete(key)
     return {"message": "Review submitted, awaiting verification"}
 
 # ---------- Debug routes ----------
