@@ -1,33 +1,20 @@
-from fastapi import FastAPI, Query, Request, HTTPException
+from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 import requests
 import os
 import logging
-from collections import defaultdict
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
-# Configure logging (so we see requests in Railway logs)
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("uvicorn")
 
-app = FastAPI(
-    title="RedditRecs API",
-    description="Reddit-powered air purifier rankings, brand stats, and use-case recommendations",
-    version="2.0.0",
-)
+app = FastAPI()
 
-# ---------------------------------------------------------------------------
-# CORS middleware
-# ---------------------------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -35,410 +22,209 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ---------------------------------------------------------------------------
-# Request logging middleware
-# ---------------------------------------------------------------------------
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    logger.info(f"-> {request.method} {request.url.path}  params={dict(request.query_params)}")
+    logger.info(f"Request: {request.method} {request.url.path}")
     response = await call_next(request)
-    logger.info(f"<- {response.status_code} {request.url.path}")
     return response
 
-# ---------------------------------------------------------------------------
-# Use-case keyword map
-# ---------------------------------------------------------------------------
-USECASE_KEYWORDS = {
-    "smoke":             ["smoke", "cigarette", "cannabis", "odor", "smell", "cooking smell", "wildfire"],
-    "pets":              ["pet", "dog", "cat", "dander", "fur", "hair", "allergy", "shedding"],
-    "allergies":         ["allergy", "pollen", "dust", "mold", "spore", "hay fever"],
-    "quiet":             ["quiet", "silent", "noise", "loud", "sleep", "bedroom", "noisy"],
-    "large-room":        ["large room", "open plan", "living room", "big space", "high ceiling"],
-    "small-room":        ["small room", "bedroom", "office", "dorm", "compact"],
-    "energy-efficiency": ["energy", "power consumption", "electricity", "low watt", "eco"],
-    "smart-home":        ["smart", "wifi", "app", "alexa", "google home", "automation"],
-}
-
-# ---------------------------------------------------------------------------
-# Supabase helpers
-# ---------------------------------------------------------------------------
-def _supabase_headers():
-    return {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
-    }
-
 def supabase_get(endpoint, params=None):
-    """GET from a Supabase REST endpoint. Returns a list (empty on error)."""
     url = f"{SUPABASE_URL}/rest/v1/{endpoint}"
-    try:
-        resp = requests.get(url, headers=_supabase_headers(), params=params, timeout=10)
-    except requests.RequestException as exc:
-        logger.error(f"Supabase request failed for {endpoint}: {exc}")
-        return []
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}"
+    }
+    resp = requests.get(url, headers=headers, params=params)
     if resp.status_code != 200:
-        logger.warning(f"Supabase {resp.status_code} for {endpoint}: {resp.text[:200]}")
+        logger.warning(f"Supabase error {resp.status_code} for {endpoint}: {resp.text}")
         return []
     return resp.json()
 
-def supabase_post(endpoint, payload):
-    """POST to a Supabase REST endpoint. Returns the response dict or None on error."""
-    url = f"{SUPABASE_URL}/rest/v1/{endpoint}"
-    headers = {**_supabase_headers(), "Content-Type": "application/json", "Prefer": "return=representation"}
-    try:
-        resp = requests.post(url, headers=headers, json=payload, timeout=10)
-    except requests.RequestException as exc:
-        logger.error(f"Supabase POST failed for {endpoint}: {exc}")
-        return None
-    if resp.status_code not in (200, 201):
-        logger.warning(f"Supabase POST {resp.status_code} for {endpoint}: {resp.text[:200]}")
-        return None
-    return resp.json()
-
-# ---------------------------------------------------------------------------
-# Root / health
-# ---------------------------------------------------------------------------
+# ---------- Root ----------
 @app.get("/")
 def root():
-    return {
-        "message": "RedditRecs API is running",
-        "version": "2.0.0",
-        "endpoints": [
-            "/rankings",
-            "/rankings?limit=10&offset=20",
-            "/rankings?category=air-purifier",
-            "/rankings?subreddit=BuyItForLife",
-            "/rankings?category=air-purifier&subreddit=allergies",
-            "/brands",
-            "/brands?category=air-purifier",
-            "/categories",
-            "/usecase/{case}",
-            "/product/{product_id}",
-            "/search",
-            "/debug/routes",
-        ],
-    }
+    return {"message": "RedditRecs API is running", "endpoints": ["/rankings", "/product/{product_id}", "/search", "/brands", "/categories", "/usecase/{case}"]}
 
-# ---------------------------------------------------------------------------
-# Debug: list all registered routes
-# ---------------------------------------------------------------------------
-@app.get("/debug/routes")
-def list_routes():
-    routes = [
-        {
-            "path": route.path,
-            "methods": sorted(route.methods) if hasattr(route, "methods") and route.methods else [],
-        }
-        for route in app.routes
-    ]
-    return {"routes": routes}
-
-# ---------------------------------------------------------------------------
-# /rankings  -- optionally filtered by category and/or subreddit
-# ---------------------------------------------------------------------------
+# ---------- Rankings with category filter and pagination ----------
 @app.get("/rankings")
-def get_rankings(
-    limit: int = Query(20, ge=1, le=100),
-    offset: int = Query(0, ge=0, description="Pagination offset"),
-    category: str = Query(None, description="Filter by product category slug"),
-    subreddit: str = Query(None, description="Filter by source subreddit (e.g. BuyItForLife)"),
-):
-    """Return ranked products, optionally filtered by category and/or subreddit."""
-    ranking_params = {"order": "rank.asc", "limit": limit, "offset": offset}
-
-    cat_ids: set | None = None
-
+def get_rankings(limit: int = 20, offset: int = 0, category: str = None, subreddit: str = None):
     if category:
-        products_in_cat = supabase_get(
-            "products",
-            params={"category": f"eq.{category}", "select": "id,brand,model_name,category"},
-        )
+        product_params = {"category": f"eq.{category}", "select": "id"}
+        products_in_cat = supabase_get("products", params=product_params)
         if not products_in_cat:
-            logger.info(f"/rankings: no products found for category='{category}'")
-            return {"rankings": [], "category": category, "subreddit": subreddit, "offset": offset}
-        cat_ids = {p["id"] for p in products_in_cat}
-
-    sub_ids: set | None = None
+            return {"rankings": []}
+        product_ids = [p["id"] for p in products_in_cat]
+        ranking_params = {"product_id": f"in.({','.join(product_ids)})", "order": "rank.asc", "limit": limit, "offset": offset}
+    else:
+        ranking_params = {"order": "rank.asc", "limit": limit, "offset": offset}
+    
     if subreddit:
-        reviews_in_sub = supabase_get(
-            "reviews",
-            params={"subreddit": f"eq.{subreddit}", "select": "product_id"},
-        )
-        if not reviews_in_sub:
-            logger.info(f"/rankings: no reviews found for subreddit='{subreddit}'")
-            return {"rankings": [], "category": category, "subreddit": subreddit, "offset": offset}
-        sub_ids = {r["product_id"] for r in reviews_in_sub if r.get("product_id")}
-
-    # --- Intersect filter sets when both are provided ---
-    if cat_ids is not None and sub_ids is not None:
-        eligible_ids = cat_ids & sub_ids
-    elif cat_ids is not None:
-        eligible_ids = cat_ids
-    elif sub_ids is not None:
-        eligible_ids = sub_ids
-    else:
-        eligible_ids = None  # no filter — return all
-
-    # --- Build product_map and constrain rankings query ---
-    if eligible_ids is not None:
-        if not eligible_ids:
-            logger.info("/rankings: intersection of category and subreddit filters is empty")
-            return {"rankings": [], "category": category, "subreddit": subreddit, "offset": offset}
-
-        id_list = list(eligible_ids)
-        ranking_params["product_id"] = f"in.({','.join(id_list)})"
-
-        # Pre-fetch product details for the eligible set
-        products = supabase_get(
-            "products",
-            params={"id": f"in.({','.join(id_list)})", "select": "id,brand,model_name,category"},
-        )
-        product_map = {p["id"]: p for p in products}
-    else:
-        product_map = None  # will be populated from ranking results below
-
+        reviews = supabase_get("reviews", params={"select": "product_id", "subreddit": f"eq.{subreddit}"})
+        if not reviews:
+            return {"rankings": []}
+        product_ids_sub = list(set([r["product_id"] for r in reviews]))
+        if category:
+            product_ids = list(set(product_ids) & set(product_ids_sub))
+        else:
+            product_ids = product_ids_sub
+        if not product_ids:
+            return {"rankings": []}
+        ranking_params["product_id"] = f"in.({','.join(product_ids)})"
+    
     rankings = supabase_get("rankings", params=ranking_params)
     if not rankings:
-        return {"rankings": [], "category": category, "subreddit": subreddit, "offset": offset}
-
-    if product_map is None:
-        # No filters active — fetch products for the returned ranking rows
-        product_ids = [r["product_id"] for r in rankings]
-        products = supabase_get("products", params={"id": f"in.({','.join(product_ids)})"})
-        product_map = {p["id"]: p for p in products}
-
+        return {"rankings": []}
+    
+    product_ids = [r["product_id"] for r in rankings]
+    products = supabase_get("products", params={"id": f"in.({','.join(product_ids)})"})
+    product_map = {p["id"]: p for p in products}
     for r in rankings:
         r["product"] = product_map.get(r["product_id"], {})
+    return {"rankings": rankings, "limit": limit, "offset": offset}
 
-    return {"rankings": rankings, "category": category, "subreddit": subreddit, "offset": offset}
-
-
-# ---------------------------------------------------------------------------
-# /brands  -- aggregate sentiment statistics per brand
-# ---------------------------------------------------------------------------
-@app.get("/brands")
-def get_brands(
-    category: str = Query(None, description="Filter by product category slug"),
-):
-    """Return per-brand sentiment statistics aggregated from reviews."""
-    product_params = {"select": "id,brand,model_name,category"}
-    if category:
-        product_params["category"] = f"eq.{category}"
-
-    products = supabase_get("products", params=product_params)
-    if not products:
-        return {"brands": [], "category": category}
-
-    product_ids = [p["id"] for p in products]
-    product_map = {p["id"]: p for p in products}
-
-    # Fetch all reviews for those products
-    reviews = supabase_get(
-        "reviews",
-        params={
-            "product_id": f"in.({','.join(product_ids)})",
-            "select": "product_id,sentiment,score",
-        },
-    )
-
-    # Aggregate per brand
-    brand_stats = defaultdict(lambda: {
-        "brand": "",
-        "total_reviews": 0,
-        "positive": 0,
-        "negative": 0,
-        "neutral": 0,
-        "avg_score": 0.0,
-        "_score_sum": 0.0,
-    })
-
-    for review in reviews:
-        pid = review.get("product_id")
-        product = product_map.get(pid, {})
-        brand = product.get("brand", "Unknown")
-
-        stats = brand_stats[brand]
-        stats["brand"] = brand
-        stats["total_reviews"] += 1
-
-        sentiment = (review.get("sentiment") or "").lower()
-        if sentiment == "positive":
-            stats["positive"] += 1
-        elif sentiment == "negative":
-            stats["negative"] += 1
-        else:
-            stats["neutral"] += 1
-
-        score = review.get("score")
-        if score is not None:
-            try:
-                stats["_score_sum"] += float(score)
-            except (TypeError, ValueError):
-                pass
-
-    # Compute derived fields and clean up internal keys
-    result = []
-    for brand, stats in brand_stats.items():
-        total = stats["total_reviews"]
-        stats["avg_score"] = round(stats["_score_sum"] / total, 2) if total else 0.0
-        stats["positive_pct"] = round(stats["positive"] / total * 100, 1) if total else 0.0
-        del stats["_score_sum"]
-        result.append(stats)
-
-    result.sort(key=lambda x: x["positive_pct"], reverse=True)
-    return {"brands": result, "category": category}
-
-# ---------------------------------------------------------------------------
-# /categories  -- list all distinct categories
-# ---------------------------------------------------------------------------
-@app.get("/categories")
-def get_categories():
-    """Return all distinct product categories present in the database."""
-    products = supabase_get("products", params={"select": "category"})
-    categories = sorted({p["category"] for p in products if p.get("category")})
-    return {"categories": categories, "count": len(categories)}
-
-# ---------------------------------------------------------------------------
-# /usecase/{case}  -- top products for a specific use case
-# ---------------------------------------------------------------------------
-@app.get("/usecase/{case}")
-def get_usecase_recommendations(
-    case: str,
-    limit: int = Query(10, ge=1, le=50),
-    category: str = Query(None, description="Optionally restrict to a product category"),
-):
-    """
-    Return top products for a given use case based on review sentiment.
-
-    Supported cases: smoke, pets, allergies, quiet, large-room, small-room,
-    energy-efficiency, smart-home.
-    """
-    case = case.lower()
-    keywords = USECASE_KEYWORDS.get(case)
-    if keywords is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Unknown use case '{case}'. Valid options: {sorted(USECASE_KEYWORDS.keys())}",
-        )
-
-    product_params = {"select": "id,brand,model_name,category"}
-    if category:
-        product_params["category"] = f"eq.{category}"
-
-    products = supabase_get("products", params=product_params)
-    if not products:
-        return {"use_case": case, "keywords": keywords, "recommendations": []}
-
-    product_ids = [p["id"] for p in products]
-    product_map = {p["id"]: p for p in products}
-
-    # Fetch reviews that mention any of the use-case keywords via Supabase ilike OR filter
-    ilike_clauses = ",".join(f"body.ilike.*{kw}*" for kw in keywords)
-    reviews = supabase_get(
-        "reviews",
-        params={
-            "product_id": f"in.({','.join(product_ids)})",
-            "or": f"({ilike_clauses})",
-            "select": "product_id,sentiment,score",
-        },
-    )
-
-    if not reviews:
-        logger.info(f"/usecase/{case}: no matching reviews found")
-        return {"use_case": case, "keywords": keywords, "recommendations": []}
-
-    # Score each product: +1 positive, -1 negative, 0 neutral
-    scores = defaultdict(lambda: {
-        "product_id": "",
-        "mention_count": 0,
-        "positive": 0,
-        "negative": 0,
-        "neutral": 0,
-        "score": 0,
-    })
-
-    for review in reviews:
-        pid = review.get("product_id")
-        if not pid:
-            continue
-        entry = scores[pid]
-        entry["product_id"] = pid
-        entry["mention_count"] += 1
-
-        sentiment = (review.get("sentiment") or "").lower()
-        if sentiment == "positive":
-            entry["positive"] += 1
-            entry["score"] += 1
-        elif sentiment == "negative":
-            entry["negative"] += 1
-            entry["score"] -= 1
-        else:
-            entry["neutral"] += 1
-
-    # Sort by score descending, then by mention count
-    ranked = sorted(scores.values(), key=lambda x: (x["score"], x["mention_count"]), reverse=True)
-
-    # Attach product details and return top N
-    recommendations = []
-    for entry in ranked[:limit]:
-        pid = entry["product_id"]
-        product = product_map.get(pid, {})
-        recommendations.append({
-            "product": product,
-            "use_case_score": entry["score"],
-            "mention_count": entry["mention_count"],
-            "positive_mentions": entry["positive"],
-            "negative_mentions": entry["negative"],
-            "neutral_mentions": entry["neutral"],
-        })
-
-    return {
-        "use_case": case,
-        "keywords": keywords,
-        "category": category,
-        "recommendations": recommendations,
-    }
-
-# ---------------------------------------------------------------------------
-# /product/{product_id}  -- full product details with recent reviews
-# ---------------------------------------------------------------------------
+# ---------- Product details (includes aspects) ----------
 @app.get("/product/{product_id}")
 def product_details(product_id: str):
-    """Return product details and its 10 most recent reviews."""
     product = supabase_get("products", params={"id": f"eq.{product_id}"})
     if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
-    reviews = supabase_get(
-        "reviews",
-        params={"product_id": f"eq.{product_id}", "order": "created_at.desc", "limit": 10},
-    )
-    return {"product": product[0], "reviews": reviews}
+        return {"error": "Product not found"}
+    reviews = supabase_get("reviews", params={"product_id": f"eq.{product_id}", "order": "created_at.desc", "limit": 10})
+    aspects = supabase_get("product_aspects", params={"product_id": f"eq.{product_id}"})
+    return {"product": product[0], "reviews": reviews, "aspects": aspects}
 
-# ---------------------------------------------------------------------------
-# /search  -- full-text search across brand and model name
-# ---------------------------------------------------------------------------
+# ---------- Search endpoint ----------
 @app.get("/search")
-def search_products(q: str = Query(..., min_length=2, description="Search query (brand or model name)")):
-    """Search products by brand or model name and include their ranking if available."""
+def search_products(q: str = Query(..., min_length=2)):
     params = {
         "or": f"(brand.ilike.*{q}*,model_name.ilike.*{q}*)",
-        "select": "id,brand,model_name,category",
+        "select": "id,brand,model_name,category"
     }
     results = supabase_get("products", params=params)
-
     if results:
         product_ids = [p["id"] for p in results]
         rankings = supabase_get("rankings", params={"product_id": f"in.({','.join(product_ids)})"})
         rank_map = {r["product_id"]: r for r in rankings}
         for p in results:
             p["ranking"] = rank_map.get(p["id"], {})
+    return {"query": q, "results": results}
 
-    return {"query": q, "count": len(results), "results": results}
+# ---------- Brand stats ----------
+@app.get("/brands")
+def get_brands(category: Optional[str] = None):
+    if category:
+        products = supabase_get("products", params={"category": f"eq.{category}", "select": "id,brand"})
+        if not products:
+            return {"brands": []}
+        product_ids = [p["id"] for p in products]
+        reviews = supabase_get("reviews", params={"product_id": f"in.({','.join(product_ids)})", "select": "product_id,sentiment"})
+    else:
+        reviews = supabase_get("reviews", params={"select": "product_id,sentiment"})
+        products = supabase_get("products", params={"select": "id,brand"})
+    product_brand = {p["id"]: p["brand"] for p in products}
+    brand_stats = {}
+    for rev in reviews:
+        pid = rev["product_id"]
+        brand = product_brand.get(pid)
+        if not brand:
+            continue
+        if brand not in brand_stats:
+            brand_stats[brand] = {"positive": 0, "negative": 0, "neutral": 0}
+        sentiment = rev["sentiment"]
+        if sentiment in brand_stats[brand]:
+            brand_stats[brand][sentiment] += 1
+    result = []
+    for brand, stats in brand_stats.items():
+        total = stats["positive"] + stats["negative"] + stats["neutral"]
+        if total == 0:
+            continue
+        positive_pct = round((stats["positive"] / total) * 100)
+        result.append({
+            "brand": brand,
+            "positive_percent": positive_pct,
+            "positive_count": stats["positive"],
+            "negative_count": stats["negative"],
+            "neutral_count": stats["neutral"],
+            "total_reviews": total
+        })
+    result.sort(key=lambda x: x["positive_percent"], reverse=True)
+    return {"brands": result}
 
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
+# ---------- List categories ----------
+@app.get("/categories")
+def get_categories():
+    products = supabase_get("products", params={"select": "category"})
+    categories = set()
+    for p in products:
+        if p.get("category"):
+            categories.add(p["category"])
+    return {"categories": sorted(list(categories))}
+
+# ---------- Use‑case endpoint (keyword matching) ----------
+USECASE_KEYWORDS = {
+    "smoke": ["smoke", "cigarette", "cannabis", "odor", "smell", "cooking smell", "wildfire"],
+    "pets": ["pet", "dog", "cat", "dander", "fur", "hair", "allergy", "shedding"],
+    "allergies": ["allergy", "pollen", "dust", "mold", "spore", "hay fever"],
+    "quiet": ["quiet", "silent", "noise", "loud", "sleep", "bedroom", "noisy"],
+    "large-room": ["large room", "open plan", "living room", "big space", "high ceiling"],
+    "small-room": ["small room", "bedroom", "office", "dorm", "compact"],
+    "energy-efficiency": ["energy", "power consumption", "electricity", "low watt", "eco"],
+    "smart-home": ["smart", "wifi", "app", "alexa", "google home", "automation"]
+}
+@app.get("/usecase/{case}")
+def get_usecase(case: str, limit: int = 10):
+    case = case.lower()
+    if case not in USECASE_KEYWORDS:
+        return {"error": f"Unknown use case. Available: {list(USECASE_KEYWORDS.keys())}"}
+    keywords = USECASE_KEYWORDS[case]
+    reviews = supabase_get("reviews", params={"select": "product_id,verbatim,sentiment", "limit": 500})
+    product_scores = {}
+    for rev in reviews:
+        verbatim = rev.get("verbatim", "").lower()
+        if any(kw in verbatim for kw in keywords):
+            pid = rev["product_id"]
+            if pid not in product_scores:
+                product_scores[pid] = {"pos": 0, "neg": 0}
+            if rev["sentiment"] == "positive":
+                product_scores[pid]["pos"] += 1
+            elif rev["sentiment"] == "negative":
+                product_scores[pid]["neg"] += 1
+    scored = []
+    for pid, counts in product_scores.items():
+        total = counts["pos"] + counts["neg"]
+        if total == 0:
+            continue
+        score = counts["pos"] / total if total > 0 else 0
+        scored.append({"product_id": pid, "score": score, "pos": counts["pos"], "neg": counts["neg"]})
+    scored.sort(key=lambda x: x["score"], reverse=True)
+    top_ids = [s["product_id"] for s in scored[:limit]]
+    if top_ids:
+        products = supabase_get("products", params={"id": f"in.({','.join(top_ids)})"})
+        product_map = {p["id"]: p for p in products}
+        result = []
+        for s in scored[:limit]:
+            prod = product_map.get(s["product_id"], {})
+            result.append({
+                "product": prod,
+                "positive_count": s["pos"],
+                "negative_count": s["neg"],
+                "score": round(s["score"], 2)
+            })
+        return {"usecase": case, "recommendations": result}
+    else:
+        return {"usecase": case, "recommendations": []}
+
+# ---------- Debug routes ----------
+@app.get("/debug/routes")
+def list_routes():
+    routes = []
+    for route in app.routes:
+        routes.append({
+            "path": route.path,
+            "methods": list(route.methods) if hasattr(route, "methods") else []
+        })
+    return {"routes": routes}
+
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("PORT", 8080))
+    port = int(os.getenv("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
