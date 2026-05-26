@@ -8,3 +8,4 @@ boto3
 requests-aws4auth
 ddgs
 google-generativeai
+redis
