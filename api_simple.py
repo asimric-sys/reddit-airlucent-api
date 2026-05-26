@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 import requests
