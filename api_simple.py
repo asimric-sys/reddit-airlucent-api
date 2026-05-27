@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 import requests
 import os
 import logging
@@ -10,6 +10,9 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from typing import Optional
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 load_dotenv()
 
@@ -43,6 +46,18 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("uvicorn")
 
 app = FastAPI()
+
+# ---------- Rate limiting ----------
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        status_code=429,
+        content={"error": "Rate limit exceeded. Please slow down and try again later."},
+        headers={"Retry-After": "60"},
+    )
 
 app.add_middleware(
     CORSMiddleware,
@@ -102,6 +117,7 @@ def root():
 
 # ---------- Rankings with category, subreddit, pagination, AND spec filters ----------
 @app.get("/rankings")
+@limiter.limit("100/minute")
 def get_rankings(
     request: Request,
     limit: int = 20,
@@ -186,7 +202,8 @@ def get_rankings(
 
 # ---------- Product details (includes aspects, specs, percentile) ----------
 @app.get("/product/{product_id}")
-def product_details(product_id: str):
+@limiter.limit("100/minute")
+def product_details(request: Request, product_id: str):
     product = supabase_get("products", params={"id": f"eq.{product_id}"})
     if not product:
         return {"error": "Product not found"}
@@ -207,7 +224,8 @@ def product_details(product_id: str):
 
 # ---------- Search ----------
 @app.get("/search")
-def search_products(q: str = Query(..., min_length=2)):
+@limiter.limit("100/minute")
+def search_products(request: Request, q: str = Query(..., min_length=2)):
     params = {
         "or": f"(brand.ilike.*{q}*,model_name.ilike.*{q}*)",
         "select": "id,brand,model_name,category"
@@ -223,7 +241,8 @@ def search_products(q: str = Query(..., min_length=2)):
 
 # ---------- Brand stats ----------
 @app.get("/brands")
-def get_brands(category: Optional[str] = None):
+@limiter.limit("100/minute")
+def get_brands(request: Request, category: Optional[str] = None):
     if category:
         products = supabase_get("products", params={"category": f"eq.{category}", "select": "id,brand"})
         if not products:
@@ -264,7 +283,8 @@ def get_brands(category: Optional[str] = None):
 
 # ---------- Categories ----------
 @app.get("/categories")
-def get_categories():
+@limiter.limit("100/minute")
+def get_categories(request: Request):
     products = supabase_get("products", params={"select": "category"})
     categories = set()
     for p in products:
@@ -284,7 +304,8 @@ USECASE_KEYWORDS = {
     "smart-home": ["smart", "wifi", "app", "alexa", "google home", "automation"]
 }
 @app.get("/usecase/{case}")
-def get_usecase(case: str, limit: int = 10):
+@limiter.limit("100/minute")
+def get_usecase(request: Request, case: str, limit: int = 10):
     case = case.lower()
     if case not in USECASE_KEYWORDS:
         return {"error": f"Unknown use case. Available: {list(USECASE_KEYWORDS.keys())}"}
@@ -328,7 +349,8 @@ def get_usecase(case: str, limit: int = 10):
 
 # ---------- Comparison ----------
 @app.get("/compare")
-def compare_products(ids: str = Query(...)):
+@limiter.limit("100/minute")
+def compare_products(request: Request, ids: str = Query(...)):
     product_ids = [pid.strip() for pid in ids.split(",")]
     if len(product_ids) < 2 or len(product_ids) > 3:
         return {"error": "Please provide 2 or 3 product IDs"}
@@ -358,7 +380,8 @@ def compare_products(ids: str = Query(...)):
 
 # ---------- Sentiment Trend ----------
 @app.get("/trend/{product_id}")
-def get_trend(product_id: str, months: int = 12):
+@limiter.limit("100/minute")
+def get_trend(request: Request, product_id: str, months: int = 12):
     history = supabase_get("sentiment_history", params={"product_id": f"eq.{product_id}", "order": "date.asc", "limit": months})
     return {"product_id": product_id, "history": history}
 
@@ -371,7 +394,8 @@ class UserReview(BaseModel):
     verbatim: str
 
 @app.post("/user_review")
-def submit_user_review(review: UserReview):
+@limiter.limit("50/minute")
+def submit_user_review(request: Request, review: UserReview):
     if review.sentiment not in ["positive", "negative", "neutral"]:
         return {"error": "Invalid sentiment"}
     data = review.dict()
@@ -387,7 +411,8 @@ def submit_user_review(review: UserReview):
 
 # ---------- NEW: Dynamic filters ----------
 @app.get("/filters")
-def get_filters():
+@limiter.limit("100/minute")
+def get_filters(request: Request):
     cache_key = "filters"
     cached = cache_get(cache_key)
     if cached is not None:
@@ -411,7 +436,8 @@ def get_filters():
 
 # ---------- NEW: Recent activity feed ----------
 @app.get("/recent_activity")
-def recent_activity(limit: int = 5):
+@limiter.limit("100/minute")
+def recent_activity(request: Request, limit: int = 5):
     reviews = supabase_get("reviews", params={"order": "created_at.desc", "limit": limit, "select": "id,verbatim,created_at,subreddit,product_id,helpful_score"})
     if not reviews:
         return {"activity": []}
@@ -425,6 +451,7 @@ def recent_activity(limit: int = 5):
 
 # ---------- NEW: User voting (upvote/downvote) ----------
 @app.post("/vote")
+@limiter.limit("50/minute")
 async def vote_review(request: Request):
     try:
         data = await request.json()
@@ -448,7 +475,8 @@ async def vote_review(request: Request):
 
 # ---------- NEW: Review of the week ----------
 @app.get("/review_of_week")
-def review_of_week():
+@limiter.limit("100/minute")
+def review_of_week(request: Request):
     today = datetime.now().date()
     start_of_week = today - timedelta(days=today.weekday())  # Monday
     week_entry = supabase_get("weekly_review", params={"week_start": f"eq.{start_of_week.isoformat()}", "select": "review_id"})
