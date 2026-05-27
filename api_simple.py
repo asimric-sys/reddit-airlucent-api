@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 import requests
 import os
+import re
 import logging
 import json
 import redis
@@ -13,9 +14,56 @@ from typing import Optional
 
 load_dotenv()
 
+# ---------------------------------------------------------------------------
+# Logging strategy
+# ---------------------------------------------------------------------------
+# SAFE to log:   request method + path, HTTP status codes, error *types*,
+#                performance metrics, non-sensitive user actions, file paths.
+# NEVER log:     environment variables (SUPABASE_KEY, GROQ_API_KEY,
+#                ADMIN_API_KEY, REDIS_URL), request headers that carry
+#                credentials (Authorization, X-API-Key, apikey), full
+#                request/response bodies, database credentials, or any
+#                value read directly from os.getenv() for a secret.
+# Use logger.debug()   for verbose detail (disabled in production).
+# Use logger.info()    for important lifecycle events.
+# Use logger.warning() for recoverable problems.
+# Use logger.error()   for failures that need attention.
+# ---------------------------------------------------------------------------
+
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 REDIS_URL = os.getenv("REDIS_URL")
+
+
+def _sanitize_exception(exc: Exception) -> str:
+    """Return a safe string representation of an exception.
+
+    Strips any embedded URLs or tokens that Redis / requests libraries
+    sometimes include in error messages (e.g. redis://:<password>@host).
+    Only the exception *type* and a truncated, credential-free message
+    are returned — never the raw repr which may contain secrets.
+    """
+    raw = str(exc)
+    # Redact anything that looks like a URL with credentials
+    # (scheme://user:password@host or scheme://:password@host)
+    sanitized = re.sub(r"[a-z]+://[^@\s]*@[^\s]*", "<redacted-url>", raw, flags=re.IGNORECASE)
+    # Truncate to avoid leaking large payloads
+    if len(sanitized) > 200:
+        sanitized = sanitized[:200] + "…"
+    return f"{type(exc).__name__}: {sanitized}"
+
+
+def _truncate_response_text(text: str, max_len: int = 120) -> str:
+    """Truncate a Supabase response body for safe logging.
+
+    Response bodies may contain row data with PII or other sensitive
+    fields.  We log only a short prefix so engineers can identify the
+    error class without exposing full payloads.
+    """
+    if len(text) > max_len:
+        return text[:max_len] + "… [truncated]"
+    return text
+
 
 # Redis setup (cache for 15 minutes)
 redis_client = None
@@ -23,9 +71,12 @@ if REDIS_URL:
     try:
         redis_client = redis.from_url(REDIS_URL, decode_responses=True)
         redis_client.ping()
-        logging.info("Redis connected")
+        # Safe: no credentials logged — just a lifecycle confirmation.
+        logging.info("Redis connected successfully")
     except Exception as e:
-        logging.warning(f"Redis error: {e}")
+        # Use sanitized message — raw exception may contain the Redis URL
+        # with embedded credentials (redis://:<password>@host:port).
+        logging.warning("Redis connection failed: %s", _sanitize_exception(e))
 CACHE_TTL = 900
 
 def cache_get(key):
@@ -53,24 +104,38 @@ app.add_middleware(
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    logger.info(f"Request: {request.method} {request.url.path}")
+    # Safe: method and path are not sensitive.
+    # Headers are intentionally excluded — they may carry Authorization /
+    # X-API-Key values.  The request body is never logged here.
+    logger.info("Request: %s %s", request.method, request.url.path)
     response = await call_next(request)
+    # Safe: status code only — no response body or headers logged.
+    logger.debug("Response: %s %s → %s", request.method, request.url.path, response.status_code)
     return response
 
 def supabase_get(endpoint, params=None):
     url = f"{SUPABASE_URL}/rest/v1/{endpoint}"
+    # Credentials are passed in headers only — never logged.
     headers = {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}"
     }
     resp = requests.get(url, headers=headers, params=params, timeout=30)
     if resp.status_code != 200:
-        logger.warning(f"Supabase error {resp.status_code} for {endpoint}: {resp.text}")
+        # Safe: log endpoint name and status code.
+        # Response body is truncated — it may contain row data with PII.
+        logger.warning(
+            "Supabase GET error %s for %s: %s",
+            resp.status_code,
+            endpoint,
+            _truncate_response_text(resp.text),
+        )
         return []
     return resp.json()
 
 def supabase_post(endpoint, data):
     url = f"{SUPABASE_URL}/rest/v1/{endpoint}"
+    # Credentials are passed in headers only — never logged.
     headers = {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
@@ -78,12 +143,20 @@ def supabase_post(endpoint, data):
     }
     resp = requests.post(url, headers=headers, json=data, timeout=30)
     if resp.status_code != 201:
-        logger.warning(f"Supabase POST error {resp.status_code} for {endpoint}: {resp.text}")
+        # Safe: log endpoint name and status code.
+        # Response body is truncated — it may contain row data with PII.
+        logger.warning(
+            "Supabase POST error %s for %s: %s",
+            resp.status_code,
+            endpoint,
+            _truncate_response_text(resp.text),
+        )
         return None
     return resp
 
 def supabase_patch(endpoint, data):
     url = f"{SUPABASE_URL}/rest/v1/{endpoint}"
+    # Credentials are passed in headers only — never logged.
     headers = {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
@@ -91,7 +164,14 @@ def supabase_patch(endpoint, data):
     }
     resp = requests.patch(url, headers=headers, json=data, timeout=30)
     if resp.status_code not in (200, 204):
-        logger.warning(f"Supabase PATCH error {resp.status_code} for {endpoint}: {resp.text}")
+        # Safe: log endpoint name and status code.
+        # Response body is truncated — it may contain row data with PII.
+        logger.warning(
+            "Supabase PATCH error %s for %s: %s",
+            resp.status_code,
+            endpoint,
+            _truncate_response_text(resp.text),
+        )
         return None
     return resp
 
@@ -480,14 +560,19 @@ def serve_widget():
         paths_tried.append(path)
         try:
             with open(path, "r", encoding="utf-8") as f:
-                logger.info(f"Serving widget.html from: {path}")
+                # Safe: file path is not sensitive.
+                logger.info("Serving widget.html from: %s", path)
                 return HTMLResponse(content=f.read(), status_code=200)
         except FileNotFoundError:
-            logger.warning(f"widget.html not found at: {path}")
+            # Safe: file path is not sensitive.
+            logger.warning("widget.html not found at: %s", path)
         except Exception as e:
-            logger.error(f"Error reading widget.html at {path}: {e}")
+            # Safe: path is not sensitive; exception message is for a file
+            # read error and will not contain credentials.
+            logger.error("Error reading widget.html at %s: %s", path, e)
 
-    logger.error(f"widget.html not found. Tried: {paths_tried}")
+    # Safe: only file-system paths are included — no credentials.
+    logger.error("widget.html not found. Tried: %s", paths_tried)
     return HTMLResponse(
         content=(
             f"<h1>widget.html not found</h1>"
