@@ -1,65 +1,61 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reddit Product Recommendations — AirLucent</title>
+  <title>Reddit Product Recommendations</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
-    /* ══════════════════════════════════════════
-       RESET & TOKENS
-    ══════════════════════════════════════════ */
+    /* ── Reset & Base ── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      /* Dark theme (default) */
-      --bg:            #0f1117;
-      --surface:       #1a1d27;
-      --surface-2:     #22263a;
-      --surface-3:     #2a2f47;
-      --border:        #2e3350;
-      --border-light:  #3a4060;
-      --accent:        #6c63ff;
-      --accent-2:      #8b83ff;
-      --accent-glow:   rgba(108,99,255,0.22);
-      --positive:      #22c55e;
-      --negative:      #ef4444;
-      --neutral:       #94a3b8;
-      --warning:       #eab308;
-      --text:          #e2e8f0;
-      --text-muted:    #64748b;
-      --text-dim:      #94a3b8;
-      --radius:        14px;
-      --radius-sm:     8px;
-      --radius-xs:     5px;
-      --shadow:        0 4px 24px rgba(0,0,0,0.45);
-      --shadow-lg:     0 12px 48px rgba(0,0,0,0.6);
-      --transition:    0.18s ease;
+      --orange:       #f39c12;
+      --orange-dark:  #e67e22;
+      --orange-light: #fef9f0;
+      --orange-glow:  rgba(243,156,18,0.15);
+      --bg:           #faf8f5;
+      --surface:      #ffffff;
+      --surface-2:    #f5f2ed;
+      --surface-3:    #ede9e2;
+      --border:       #e8e2d9;
+      --border-light: #f0ece5;
+      --positive:     #27ae60;
+      --negative:     #e74c3c;
+      --neutral:      #95a5a6;
+      --warning:      #f39c12;
+      --text:         #2c3e50;
+      --text-muted:   #7f8c8d;
+      --text-dim:     #95a5a6;
+      --reddit:       #ff4500;
+      --verified:     #3498db;
+      --trending:     #e74c3c;
+      --radius:       12px;
+      --radius-sm:    8px;
+      --radius-xs:    5px;
+      --shadow:       0 2px 16px rgba(0,0,0,0.08);
+      --shadow-lg:    0 8px 40px rgba(0,0,0,0.14);
+      --transition:   0.18s ease;
     }
 
-    [data-theme="light"] {
-      --bg:            #f0f2f8;
-      --surface:       #ffffff;
-      --surface-2:     #f4f6fb;
-      --surface-3:     #e8ecf5;
-      --border:        #dde2f0;
-      --border-light:  #c8d0e8;
-      --accent:        #5b52e8;
-      --accent-2:      #7b74f0;
-      --accent-glow:   rgba(91,82,232,0.12);
-      --positive:      #16a34a;
-      --negative:      #dc2626;
-      --neutral:       #64748b;
-      --warning:       #ca8a04;
-      --text:          #1e2235;
-      --text-muted:    #8896b0;
-      --text-dim:      #64748b;
-      --shadow:        0 4px 20px rgba(0,0,0,0.08);
-      --shadow-lg:     0 12px 40px rgba(0,0,0,0.14);
+    [data-theme="dark"] {
+      --bg:           #1a1a1a;
+      --surface:      #242424;
+      --surface-2:    #2e2e2e;
+      --surface-3:    #383838;
+      --border:       #3a3a3a;
+      --border-light: #444444;
+      --orange-light: #2a2010;
+      --orange-glow:  rgba(243,156,18,0.12);
+      --text:         #e8e8e8;
+      --text-muted:   #888888;
+      --text-dim:     #aaaaaa;
+      --shadow:       0 2px 16px rgba(0,0,0,0.4);
+      --shadow-lg:    0 8px 40px rgba(0,0,0,0.6);
     }
 
     html, body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
@@ -68,113 +64,147 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    /* ══════════════════════════════════════════
-       LAYOUT SHELL
-    ══════════════════════════════════════════ */
-    #app {
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-    }
-
-    .top-bar {
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 0 20px;
-      height: 56px;
+    /* ── Header ── */
+    .widget-header {
+      background: linear-gradient(135deg, var(--orange) 0%, var(--orange-dark) 100%);
+      color: #fff;
+      padding: 16px 20px 14px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 12px rgba(243,156,18,0.3);
     }
 
-    .top-bar-left {
+    .header-left {
       display: flex;
       align-items: center;
       gap: 10px;
-      flex-shrink: 0;
     }
 
-    .logo-badge {
-      display: inline-flex;
+    .header-logo {
+      display: flex;
       align-items: center;
       gap: 6px;
-      background: var(--accent-glow);
-      border: 1px solid var(--accent);
-      color: var(--accent);
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+    }
+
+    .header-logo svg { opacity: 0.95; }
+
+    .live-dot {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 999px;
+      padding: 2px 8px;
       font-size: 10px;
       font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      padding: 3px 10px;
-      border-radius: 999px;
+      letter-spacing: 0.06em;
+    }
+    .live-dot::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #fff;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.5; transform: scale(0.8); }
     }
 
-    .top-bar-title {
-      font-size: 15px;
-      font-weight: 700;
-      color: var(--text);
-      white-space: nowrap;
-    }
-
-    .top-bar-right {
+    .header-right {
       display: flex;
       align-items: center;
       gap: 8px;
     }
 
-    /* Search */
     .search-wrap {
       position: relative;
-      flex: 1;
-      max-width: 320px;
     }
     .search-wrap svg {
       position: absolute;
-      left: 10px;
+      left: 9px;
       top: 50%;
       transform: translateY(-50%);
-      color: var(--text-muted);
+      color: rgba(255,255,255,0.7);
       pointer-events: none;
     }
     #search-input {
-      width: 100%;
-      background: var(--surface-2);
-      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.3);
       border-radius: var(--radius-sm);
-      color: var(--text);
+      color: #fff;
       font-size: 13px;
-      padding: 7px 10px 7px 32px;
+      padding: 7px 10px 7px 30px;
       outline: none;
-      transition: border-color var(--transition);
+      width: 200px;
+      transition: all var(--transition);
     }
-    #search-input::placeholder { color: var(--text-muted); }
-    #search-input:focus { border-color: var(--accent); }
+    #search-input::placeholder { color: rgba(255,255,255,0.65); }
+    #search-input:focus {
+      background: rgba(255,255,255,0.28);
+      border-color: rgba(255,255,255,0.6);
+      width: 240px;
+    }
 
-    /* Dark mode toggle */
-    .theme-btn {
-      background: var(--surface-2);
+    .search-dropdown {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      right: 0;
+      background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
-      color: var(--text-dim);
+      box-shadow: var(--shadow-lg);
+      z-index: 500;
+      overflow: hidden;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .search-result-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      transition: background var(--transition);
+    }
+    .search-result-item:last-child { border-bottom: none; }
+    .search-result-item:hover { background: var(--surface-2); }
+    .search-result-name { font-size: 13px; font-weight: 500; color: var(--text); }
+    .search-result-brand { font-size: 11px; color: var(--text-muted); }
+    .search-result-score {
+      margin-left: auto;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--positive);
+    }
+
+    .theme-btn {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: var(--radius-sm);
+      color: #fff;
       cursor: pointer;
       padding: 6px 8px;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: background var(--transition), color var(--transition);
+      transition: background var(--transition);
       flex-shrink: 0;
     }
-    .theme-btn:hover { background: var(--surface-3); color: var(--text); }
+    .theme-btn:hover { background: rgba(255,255,255,0.3); }
 
-    /* ══════════════════════════════════════════
-       FILTER BAR
-    ══════════════════════════════════════════ */
+    /* ── Filter Bar ── */
     .filter-bar {
       background: var(--surface);
       border-bottom: 1px solid var(--border);
@@ -187,7 +217,7 @@
 
     .filter-label {
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.08em;
       color: var(--text-muted);
@@ -205,38 +235,12 @@
       cursor: pointer;
       appearance: none;
       -webkit-appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237f8c8d' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
       background-position: right 8px center;
       transition: border-color var(--transition);
     }
-    .filter-select:focus { border-color: var(--accent); }
-
-    .filter-chips {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-
-    .chip {
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      color: var(--text-dim);
-      font-size: 11px;
-      font-weight: 500;
-      padding: 4px 12px;
-      cursor: pointer;
-      transition: all var(--transition);
-      white-space: nowrap;
-    }
-    .chip:hover { border-color: var(--accent); color: var(--accent); }
-    .chip.active {
-      background: var(--accent-glow);
-      border-color: var(--accent);
-      color: var(--accent);
-      font-weight: 600;
-    }
+    .filter-select:focus { border-color: var(--orange); }
 
     .filter-divider {
       width: 1px;
@@ -245,27 +249,45 @@
       flex-shrink: 0;
     }
 
-    /* ══════════════════════════════════════════
-       MAIN CONTENT
-    ══════════════════════════════════════════ */
+    .filter-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    .chip {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 12px;
+      cursor: pointer;
+      transition: all var(--transition);
+      white-space: nowrap;
+    }
+    .chip:hover { border-color: var(--orange); color: var(--orange); }
+    .chip.active {
+      background: var(--orange-glow);
+      border-color: var(--orange);
+      color: var(--orange-dark);
+      font-weight: 700;
+    }
+
+    /* ── Main Content ── */
     .main-content {
-      flex: 1;
-      padding: 24px 20px 48px;
+      padding: 20px;
       max-width: 1200px;
-      width: 100%;
       margin: 0 auto;
     }
 
-    /* Section header */
+    /* ── Section Header ── */
     .section-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
       gap: 12px;
     }
     .section-title {
-      font-size: 18px;
+      font-size: 17px;
       font-weight: 700;
       color: var(--text);
     }
@@ -274,19 +296,61 @@
       color: var(--text-muted);
       margin-top: 2px;
     }
-    .section-actions {
+    .section-actions { display: flex; align-items: center; gap: 8px; }
+
+    /* ── Best For You ── */
+    .best-for-you {
+      background: linear-gradient(135deg, var(--orange-light) 0%, var(--surface) 100%);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--orange);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      margin-bottom: 24px;
+    }
+    .bfy-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--orange-dark);
+      margin-bottom: 10px;
       display: flex;
       align-items: center;
+      gap: 6px;
+    }
+    .bfy-buttons {
+      display: flex;
       gap: 8px;
+      flex-wrap: wrap;
+    }
+    .bfy-btn {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 999px;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 14px;
+      cursor: pointer;
+      transition: all var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .bfy-btn:hover {
+      border-color: var(--orange);
+      color: var(--orange-dark);
+      background: var(--orange-glow);
+    }
+    .bfy-btn.active {
+      background: var(--orange);
+      border-color: var(--orange);
+      color: #fff;
     }
 
-    /* ══════════════════════════════════════════
-       PRODUCT GRID
-    ══════════════════════════════════════════ */
+    /* ── Product Grid ── */
     .product-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
-      gap: 18px;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
     }
 
     /* ── Card ── */
@@ -304,43 +368,73 @@
     .card:hover {
       transform: translateY(-3px);
       box-shadow: var(--shadow-lg);
-      border-color: var(--accent);
+      border-color: var(--orange);
     }
 
     .card-image-wrap {
       position: relative;
       background: var(--surface-2);
-      height: 170px;
+      height: 165px;
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
     }
     .card-image-wrap img {
-      max-height: 150px;
+      max-height: 145px;
       max-width: 88%;
       object-fit: contain;
       transition: transform 0.3s ease;
     }
     .card:hover .card-image-wrap img { transform: scale(1.05); }
-    .card-img-placeholder { font-size: 44px; opacity: 0.2; }
+    .card-img-placeholder { font-size: 44px; opacity: 0.18; }
 
     .card-rank {
       position: absolute;
       top: 10px;
       left: 10px;
-      background: var(--accent);
+      background: var(--orange);
       color: #fff;
       font-size: 10px;
-      font-weight: 700;
+      font-weight: 800;
       padding: 3px 8px;
       border-radius: 999px;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.04em;
+    }
+
+    .card-badges {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: flex-end;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 999px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .badge-trending {
+      background: var(--trending);
+      color: #fff;
+    }
+    .badge-verified {
+      background: var(--verified);
+      color: #fff;
     }
 
     .card-compare-btn {
       position: absolute;
-      top: 10px;
+      bottom: 10px;
       right: 10px;
       background: var(--surface);
       border: 1px solid var(--border);
@@ -356,9 +450,9 @@
     .card:hover .card-compare-btn { opacity: 1; }
     .card-compare-btn:hover,
     .card-compare-btn.selected {
-      background: var(--accent-glow);
-      border-color: var(--accent);
-      color: var(--accent);
+      background: var(--orange-glow);
+      border-color: var(--orange);
+      color: var(--orange-dark);
     }
     .card-compare-btn.selected { opacity: 1; }
 
@@ -375,7 +469,7 @@
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.1em;
-      color: var(--accent);
+      color: var(--orange-dark);
     }
     .card-name {
       font-size: 14px;
@@ -383,10 +477,7 @@
       color: var(--text);
       line-height: 1.35;
     }
-    .card-category {
-      font-size: 11px;
-      color: var(--text-muted);
-    }
+    .card-category { font-size: 11px; color: var(--text-muted); }
 
     .card-meta {
       display: flex;
@@ -404,15 +495,12 @@
       font-size: 12px;
       font-weight: 700;
     }
-    .score-pill.high   { background: rgba(34,197,94,0.12);  color: var(--positive); }
-    .score-pill.medium { background: rgba(234,179,8,0.12);  color: var(--warning); }
-    .score-pill.low    { background: rgba(239,68,68,0.12);  color: var(--negative); }
+    .score-pill.high   { background: rgba(39,174,96,0.12);  color: var(--positive); }
+    .score-pill.medium { background: rgba(243,156,18,0.12); color: var(--warning); }
+    .score-pill.low    { background: rgba(231,76,60,0.12);  color: var(--negative); }
     .score-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
-    .review-count {
-      font-size: 11px;
-      color: var(--text-muted);
-    }
+    .review-count { font-size: 11px; color: var(--text-muted); }
 
     /* Sentiment bar */
     .sent-bar-wrap { display: flex; flex-direction: column; gap: 4px; }
@@ -430,10 +518,9 @@
       display: flex;
     }
     .seg-pos { background: var(--positive); }
-    .seg-neu { background: var(--neutral); opacity: 0.5; }
+    .seg-neu { background: var(--neutral); opacity: 0.4; }
     .seg-neg { background: var(--negative); }
 
-    /* Price tag */
     .card-price {
       font-size: 13px;
       font-weight: 700;
@@ -446,39 +533,80 @@
       margin-left: 3px;
     }
 
-    /* ══════════════════════════════════════════
-       PAGINATION
-    ══════════════════════════════════════════ */
+    /* ── Load More / Pagination ── */
+    .load-more-wrap {
+      text-align: center;
+      margin-top: 28px;
+    }
+
     .pagination {
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
-      margin-top: 32px;
+      margin-top: 28px;
     }
     .page-btn {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
-      color: var(--text-dim);
+      color: var(--text-muted);
       font-size: 13px;
       font-weight: 500;
       padding: 7px 14px;
       cursor: pointer;
       transition: all var(--transition);
     }
-    .page-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+    .page-btn:hover:not(:disabled) { border-color: var(--orange); color: var(--orange-dark); }
     .page-btn.active {
-      background: var(--accent);
-      border-color: var(--accent);
+      background: var(--orange);
+      border-color: var(--orange);
       color: #fff;
       font-weight: 700;
     }
     .page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
-    /* ══════════════════════════════════════════
-       COMPARE BAR
-    ══════════════════════════════════════════ */
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 18px;
+      cursor: pointer;
+      transition: all var(--transition);
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .btn-primary {
+      background: var(--orange);
+      color: #fff;
+      border-color: var(--orange);
+    }
+    .btn-primary:hover { background: var(--orange-dark); border-color: var(--orange-dark); }
+    .btn-secondary {
+      background: var(--surface-2);
+      color: var(--text);
+      border-color: var(--border);
+    }
+    .btn-secondary:hover { border-color: var(--orange); color: var(--orange-dark); }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-muted);
+      border-color: transparent;
+    }
+    .btn-ghost:hover { color: var(--text); background: var(--surface-2); }
+    .btn-sm { padding: 5px 12px; font-size: 12px; }
+    .btn-outline {
+      background: transparent;
+      color: var(--orange-dark);
+      border-color: var(--orange);
+    }
+    .btn-outline:hover { background: var(--orange-glow); }
+
+    /* ── Compare Bar ── */
     .compare-bar {
       position: fixed;
       bottom: 0;
@@ -486,13 +614,13 @@
       right: 0;
       z-index: 200;
       background: var(--surface);
-      border-top: 1px solid var(--border);
+      border-top: 2px solid var(--orange);
       padding: 12px 20px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      box-shadow: 0 -4px 24px rgba(0,0,0,0.3);
+      box-shadow: 0 -4px 24px rgba(0,0,0,0.12);
       transform: translateY(100%);
       transition: transform 0.25s ease;
     }
@@ -507,7 +635,7 @@
     }
     .compare-bar-label {
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 700;
       color: var(--text-muted);
       white-space: nowrap;
     }
@@ -515,8 +643,8 @@
       display: flex;
       align-items: center;
       gap: 6px;
-      background: var(--surface-2);
-      border: 1px solid var(--border);
+      background: var(--orange-glow);
+      border: 1px solid var(--orange);
       border-radius: var(--radius-sm);
       padding: 5px 10px;
       font-size: 12px;
@@ -537,65 +665,16 @@
       flex-shrink: 0;
     }
     .compare-item-remove:hover { color: var(--negative); }
+    .compare-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
-    .compare-actions {
-      display: flex;
-      gap: 8px;
-      flex-shrink: 0;
-    }
-
-    /* ══════════════════════════════════════════
-       BUTTONS
-    ══════════════════════════════════════════ */
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      border-radius: var(--radius-sm);
-      font-size: 13px;
-      font-weight: 600;
-      padding: 8px 16px;
-      cursor: pointer;
-      transition: all var(--transition);
-      border: 1px solid transparent;
-      white-space: nowrap;
-    }
-    .btn-primary {
-      background: var(--accent);
-      color: #fff;
-      border-color: var(--accent);
-    }
-    .btn-primary:hover { background: var(--accent-2); border-color: var(--accent-2); }
-    .btn-secondary {
-      background: var(--surface-2);
-      color: var(--text-dim);
-      border-color: var(--border);
-    }
-    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
-    .btn-ghost {
-      background: transparent;
-      color: var(--text-muted);
-      border-color: transparent;
-    }
-    .btn-ghost:hover { color: var(--text); background: var(--surface-2); }
-    .btn-sm { padding: 5px 12px; font-size: 12px; }
-    .btn-danger {
-      background: rgba(239,68,68,0.1);
-      color: var(--negative);
-      border-color: rgba(239,68,68,0.3);
-    }
-    .btn-danger:hover { background: rgba(239,68,68,0.2); }
-
-    /* ══════════════════════════════════════════
-       MODAL OVERLAY
-    ══════════════════════════════════════════ */
+    /* ── Modal ── */
     .modal-overlay {
       position: fixed;
       inset: 0;
       z-index: 300;
-      background: rgba(0,0,0,0.7);
-      backdrop-filter: blur(4px);
-      -webkit-backdrop-filter: blur(4px);
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
       display: flex;
       align-items: flex-start;
       justify-content: center;
@@ -616,7 +695,7 @@
       border-radius: var(--radius);
       box-shadow: var(--shadow-lg);
       width: 100%;
-      max-width: 900px;
+      max-width: 860px;
       margin: auto;
       transform: translateY(16px);
       transition: transform 0.2s ease;
@@ -627,9 +706,11 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 18px 22px;
+      padding: 16px 20px;
       border-bottom: 1px solid var(--border);
       gap: 12px;
+      background: linear-gradient(135deg, var(--orange-light) 0%, var(--surface) 100%);
+      border-radius: var(--radius) var(--radius) 0 0;
     }
     .modal-title {
       font-size: 16px;
@@ -654,35 +735,32 @@
     .modal-close:hover { background: var(--surface-3); color: var(--text); }
 
     .modal-body {
-      padding: 22px;
+      padding: 20px;
       overflow-y: auto;
       max-height: calc(90vh - 80px);
     }
 
-    /* ══════════════════════════════════════════
-       PRODUCT DETAIL VIEW
-    ══════════════════════════════════════════ */
+    /* ── Product Detail ── */
     .detail-hero {
       display: grid;
-      grid-template-columns: 200px 1fr;
-      gap: 24px;
-      margin-bottom: 28px;
+      grid-template-columns: 190px 1fr;
+      gap: 22px;
+      margin-bottom: 24px;
     }
-    @media (max-width: 600px) {
-      .detail-hero { grid-template-columns: 1fr; }
-    }
+    @media (max-width: 580px) { .detail-hero { grid-template-columns: 1fr; } }
 
     .detail-image-wrap {
       background: var(--surface-2);
       border-radius: var(--radius);
-      height: 200px;
+      height: 190px;
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
+      border: 1px solid var(--border);
     }
     .detail-image-wrap img {
-      max-height: 180px;
+      max-height: 170px;
       max-width: 90%;
       object-fit: contain;
     }
@@ -693,22 +771,21 @@
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.1em;
-      color: var(--accent);
+      color: var(--orange-dark);
     }
     .detail-name {
-      font-size: 22px;
+      font-size: 20px;
       font-weight: 700;
       color: var(--text);
       line-height: 1.25;
     }
-    .detail-category {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
+    .detail-category { font-size: 12px; color: var(--text-muted); }
+
+    .detail-badges { display: flex; gap: 6px; flex-wrap: wrap; }
 
     .detail-stats {
       display: flex;
-      gap: 16px;
+      gap: 12px;
       flex-wrap: wrap;
     }
     .stat-box {
@@ -717,16 +794,17 @@
       border-radius: var(--radius-sm);
       padding: 10px 14px;
       text-align: center;
-      min-width: 80px;
+      min-width: 76px;
     }
     .stat-value {
-      font-size: 20px;
+      font-size: 19px;
       font-weight: 800;
       color: var(--text);
       line-height: 1;
     }
     .stat-value.positive { color: var(--positive); }
     .stat-value.negative { color: var(--negative); }
+    .stat-value.orange   { color: var(--orange-dark); }
     .stat-label {
       font-size: 10px;
       color: var(--text-muted);
@@ -736,19 +814,19 @@
     }
 
     .detail-price {
-      font-size: 20px;
+      font-size: 19px;
       font-weight: 700;
       color: var(--text);
     }
-
     .detail-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
     /* Tabs */
     .tabs {
       display: flex;
       gap: 2px;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 22px;
+      border-bottom: 2px solid var(--border);
+      margin-bottom: 20px;
+      overflow-x: auto;
     }
     .tab-btn {
       background: none;
@@ -758,15 +836,16 @@
       cursor: pointer;
       font-size: 13px;
       font-weight: 500;
-      padding: 10px 16px;
-      margin-bottom: -1px;
+      padding: 10px 14px;
+      margin-bottom: -2px;
       transition: all var(--transition);
+      white-space: nowrap;
     }
     .tab-btn:hover { color: var(--text); }
     .tab-btn.active {
-      color: var(--accent);
-      border-bottom-color: var(--accent);
-      font-weight: 600;
+      color: var(--orange-dark);
+      border-bottom-color: var(--orange);
+      font-weight: 700;
     }
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
@@ -775,12 +854,10 @@
     .pros-cons-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      margin-bottom: 20px;
+      gap: 14px;
+      margin-bottom: 18px;
     }
-    @media (max-width: 500px) {
-      .pros-cons-grid { grid-template-columns: 1fr; }
-    }
+    @media (max-width: 480px) { .pros-cons-grid { grid-template-columns: 1fr; } }
 
     .pros-box, .cons-box {
       background: var(--surface-2);
@@ -823,11 +900,11 @@
       background: var(--surface-2);
       border-radius: var(--radius-sm);
       padding: 16px;
-      margin-bottom: 20px;
+      margin-bottom: 18px;
     }
     .trend-title {
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 700;
       color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.08em;
@@ -835,63 +912,211 @@
     }
     .trend-chart-wrap { position: relative; height: 160px; }
 
-    /* Reviews */
-    .review-list { display: flex; flex-direction: column; gap: 12px; }
-    .review-card {
+    /* Subreddit Heatmap */
+    .heatmap-wrap {
+      background: var(--surface-2);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      margin-bottom: 18px;
+    }
+    .heatmap-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
+    }
+    .heatmap-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .heatmap-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .heatmap-label {
+      font-size: 11px;
+      color: var(--orange-dark);
+      font-weight: 600;
+      width: 120px;
+      flex-shrink: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .heatmap-bar-track {
+      flex: 1;
+      height: 18px;
+      background: var(--surface-3);
+      border-radius: var(--radius-xs);
+      overflow: hidden;
+      position: relative;
+    }
+    .heatmap-bar-fill {
+      height: 100%;
+      border-radius: var(--radius-xs);
+      background: linear-gradient(90deg, var(--orange) 0%, var(--orange-dark) 100%);
+      transition: width 0.6s ease;
+      display: flex;
+      align-items: center;
+      padding-left: 6px;
+    }
+    .heatmap-bar-text {
+      font-size: 10px;
+      font-weight: 700;
+      color: #fff;
+      white-space: nowrap;
+    }
+    .heatmap-count {
+      font-size: 11px;
+      color: var(--text-muted);
+      width: 50px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    /* Reddit Preview */
+    .reddit-preview-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .reddit-post {
       background: var(--surface-2);
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
-      padding: 14px;
+      overflow: hidden;
+      transition: border-color var(--transition);
     }
-    .review-header {
+    .reddit-post:hover { border-color: var(--orange); }
+
+    .reddit-post-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 8px;
+      padding: 10px 14px 8px;
       gap: 8px;
     }
-    .review-meta {
+    .reddit-post-meta {
       display: flex;
       align-items: center;
       gap: 8px;
     }
-    .review-sub {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--accent);
+    .reddit-icon {
+      width: 20px;
+      height: 20px;
+      background: var(--reddit);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
     }
-    .review-date {
+    .reddit-icon svg { width: 12px; height: 12px; fill: #fff; }
+    .reddit-sub {
       font-size: 11px;
-      color: var(--text-muted);
-    }
-    .sentiment-badge {
-      font-size: 10px;
       font-weight: 700;
-      padding: 2px 8px;
+      color: var(--reddit);
+    }
+    .reddit-date { font-size: 11px; color: var(--text-muted); }
+    .reddit-sentiment-badge {
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 7px;
       border-radius: 999px;
       text-transform: uppercase;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.05em;
     }
-    .sentiment-badge.positive { background: rgba(34,197,94,0.12); color: var(--positive); }
-    .sentiment-badge.negative { background: rgba(239,68,68,0.12); color: var(--negative); }
-    .sentiment-badge.neutral  { background: rgba(148,163,184,0.12); color: var(--neutral); }
+    .reddit-sentiment-badge.positive { background: rgba(39,174,96,0.12); color: var(--positive); }
+    .reddit-sentiment-badge.negative { background: rgba(231,76,60,0.12);  color: var(--negative); }
+    .reddit-sentiment-badge.neutral  { background: rgba(149,165,166,0.12); color: var(--neutral); }
 
-    .review-text {
+    .reddit-post-body {
+      padding: 0 14px 12px;
+    }
+    .reddit-post-text {
       font-size: 13px;
-      color: var(--text-dim);
+      color: var(--text);
       line-height: 1.6;
     }
-
-    /* ══════════════════════════════════════════
-       COMPARE MODAL
-    ══════════════════════════════════════════ */
-    .compare-grid {
-      display: grid;
-      gap: 16px;
+    .reddit-post-text.collapsed {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
+    .reddit-expand-btn {
+      background: none;
+      border: none;
+      color: var(--orange-dark);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 4px 0 0;
+      display: block;
+    }
+    .reddit-expand-btn:hover { text-decoration: underline; }
+
+    /* Related Products */
+    .related-wrap {
+      margin-top: 8px;
+    }
+    .related-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 10px;
+    }
+    .related-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 10px;
+    }
+    .related-card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px;
+      cursor: pointer;
+      transition: all var(--transition);
+      text-align: center;
+    }
+    .related-card:hover { border-color: var(--orange); background: var(--orange-light); }
+    .related-card-img {
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 6px;
+    }
+    .related-card-img img {
+      max-height: 55px;
+      max-width: 90%;
+      object-fit: contain;
+    }
+    .related-card-name {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.3;
+    }
+    .related-card-score {
+      font-size: 10px;
+      color: var(--positive);
+      font-weight: 700;
+      margin-top: 3px;
+    }
+
+    /* ── Compare Modal ── */
+    .compare-grid { display: grid; gap: 14px; }
     .compare-grid.cols-2 { grid-template-columns: 1fr 1fr; }
     .compare-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
-    @media (max-width: 640px) {
+    @media (max-width: 600px) {
       .compare-grid.cols-2,
       .compare-grid.cols-3 { grid-template-columns: 1fr; }
     }
@@ -905,19 +1130,19 @@
       flex-direction: column;
       gap: 12px;
     }
-    .compare-col.winner { border-color: var(--accent); }
+    .compare-col.winner { border-color: var(--orange); }
 
     .compare-col-image {
       background: var(--surface-3);
       border-radius: var(--radius-xs);
-      height: 120px;
+      height: 110px;
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
     }
     .compare-col-image img {
-      max-height: 100px;
+      max-height: 95px;
       max-width: 90%;
       object-fit: contain;
     }
@@ -927,7 +1152,7 @@
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.1em;
-      color: var(--accent);
+      color: var(--orange-dark);
     }
     .compare-col-name {
       font-size: 14px;
@@ -951,7 +1176,7 @@
     .compare-score-bar {
       height: 100%;
       border-radius: 999px;
-      background: var(--accent);
+      background: linear-gradient(90deg, var(--orange) 0%, var(--orange-dark) 100%);
       transition: width 0.6s ease;
     }
     .compare-score-val {
@@ -983,9 +1208,9 @@
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      background: var(--accent-glow);
-      border: 1px solid var(--accent);
-      color: var(--accent);
+      background: var(--orange-glow);
+      border: 1px solid var(--orange);
+      color: var(--orange-dark);
       font-size: 10px;
       font-weight: 700;
       padding: 2px 8px;
@@ -994,101 +1219,49 @@
       letter-spacing: 0.06em;
     }
 
-    /* ══════════════════════════════════════════
-       SEARCH RESULTS DROPDOWN
-    ══════════════════════════════════════════ */
-    .search-results-dropdown {
-      position: absolute;
-      top: calc(100% + 4px);
-      left: 0;
-      right: 0;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      box-shadow: var(--shadow-lg);
-      z-index: 500;
-      overflow: hidden;
-      max-height: 280px;
-      overflow-y: auto;
-    }
-    .search-result-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 14px;
-      cursor: pointer;
-      transition: background var(--transition);
-      border-bottom: 1px solid var(--border);
-    }
-    .search-result-item:last-child { border-bottom: none; }
-    .search-result-item:hover { background: var(--surface-2); }
-    .search-result-name {
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--text);
-    }
-    .search-result-brand {
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-    .search-result-score {
-      margin-left: auto;
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    /* ══════════════════════════════════════════
-       LOADING / ERROR STATES
-    ══════════════════════════════════════════ */
+    /* ── Loading / Error ── */
     .state-container {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      min-height: 280px;
-      gap: 16px;
+      min-height: 260px;
+      gap: 14px;
       color: var(--text-muted);
     }
     .spinner {
-      width: 38px;
-      height: 38px;
+      width: 36px;
+      height: 36px;
       border: 3px solid var(--border);
-      border-top-color: var(--accent);
+      border-top-color: var(--orange);
       border-radius: 50%;
       animation: spin 0.75s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     .state-msg { font-size: 14px; text-align: center; max-width: 300px; line-height: 1.5; }
 
-    /* Empty state */
     .empty-state {
       text-align: center;
-      padding: 48px 24px;
+      padding: 44px 24px;
       color: var(--text-muted);
     }
-    .empty-icon { font-size: 40px; margin-bottom: 12px; }
+    .empty-icon { font-size: 38px; margin-bottom: 12px; }
     .empty-title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
     .empty-sub { font-size: 13px; }
 
-    /* ══════════════════════════════════════════
-       FOOTER
-    ══════════════════════════════════════════ */
+    /* ── Footer ── */
     .widget-footer {
       text-align: center;
-      padding: 16px 20px;
+      padding: 14px 20px;
       font-size: 12px;
       color: var(--text-muted);
       border-top: 1px solid var(--border);
+      margin-top: 8px;
     }
-    .widget-footer a {
-      color: var(--accent);
-      text-decoration: none;
-    }
+    .widget-footer a { color: var(--orange-dark); text-decoration: none; }
     .widget-footer a:hover { text-decoration: underline; }
 
-    /* ══════════════════════════════════════════
-       BLOCKED STATE
-    ══════════════════════════════════════════ */
+    /* ── Blocked ── */
     .blocked {
       display: flex;
       flex-direction: column;
@@ -1103,23 +1276,21 @@
     .blocked h2 { color: var(--negative); font-size: 18px; }
     .blocked p  { font-size: 13px; max-width: 320px; line-height: 1.6; }
 
-    /* ══════════════════════════════════════════
-       RESPONSIVE TWEAKS
-    ══════════════════════════════════════════ */
+    /* ── Responsive ── */
     @media (max-width: 640px) {
-      .top-bar { padding: 0 12px; }
-      .top-bar-title { display: none; }
-      .filter-bar { padding: 8px 12px; }
-      .main-content { padding: 16px 12px 80px; }
+      .widget-header { padding: 12px 14px; }
+      #search-input { width: 150px; }
+      #search-input:focus { width: 180px; }
+      .filter-bar { padding: 8px 14px; }
+      .main-content { padding: 14px 14px 80px; }
       .product-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
     }
     @media (max-width: 420px) {
       .product-grid { grid-template-columns: 1fr; }
+      #search-input { width: 120px; }
     }
 
-    /* ══════════════════════════════════════════
-       UTILITY
-    ══════════════════════════════════════════ */
+    /* ── Utility ── */
     .hidden { display: none !important; }
     .text-positive { color: var(--positive); }
     .text-negative { color: var(--negative); }
@@ -1127,10 +1298,6 @@
     .mt-4  { margin-top: 4px; }
     .mt-8  { margin-top: 8px; }
     .mt-16 { margin-top: 16px; }
-    .flex  { display: flex; }
-    .items-center { align-items: center; }
-    .gap-8 { gap: 8px; }
-    .w-full { width: 100%; }
   </style>
 </head>
 <body>
@@ -1144,21 +1311,21 @@
   /* ════════════════════════════════════════════
      CONSTANTS
   ════════════════════════════════════════════ */
-  const API_BASE       = window.location.origin;
-  const PAGE_SIZE      = 12;
-  const MAX_COMPARE    = 3;
+  const API_BASE        = window.location.origin;
+  const PAGE_SIZE       = 12;
+  const MAX_COMPARE     = 3;
   const ALLOWED_ORIGINS = ["https://airlucent.com", "https://www.airlucent.com"];
 
   const USECASE_OPTIONS = [
-    { value: "",                 label: "All Use Cases" },
-    { value: "smoke",            label: "Smoke & Odor" },
-    { value: "pets",             label: "Pets" },
-    { value: "allergies",        label: "Allergies" },
-    { value: "quiet",            label: "Quiet / Sleep" },
-    { value: "large-room",       label: "Large Room" },
-    { value: "small-room",       label: "Small Room" },
-    { value: "energy-efficiency",label: "Energy Efficient" },
-    { value: "smart-home",       label: "Smart Home" },
+    { value: "",                  label: "All",             emoji: "🌟" },
+    { value: "smoke",             label: "Smoke & Odor",    emoji: "🚬" },
+    { value: "pets",              label: "Pets",            emoji: "🐾" },
+    { value: "allergies",         label: "Allergies",       emoji: "🌿" },
+    { value: "quiet",             label: "Quiet / Sleep",   emoji: "😴" },
+    { value: "large-room",        label: "Large Room",      emoji: "🏠" },
+    { value: "small-room",        label: "Small Room",      emoji: "🛏️" },
+    { value: "energy-efficiency", label: "Energy Efficient",emoji: "⚡" },
+    { value: "smart-home",        label: "Smart Home",      emoji: "📱" },
   ];
 
   /* ════════════════════════════════════════════
@@ -1176,21 +1343,20 @@
      STATE
   ════════════════════════════════════════════ */
   const state = {
-    rankings:       [],
-    categories:     [],
-    subreddits:     [],
-    compareList:    [],   // array of ranking objects
-    currentPage:    1,
-    totalItems:     0,
+    rankings:      [],
+    allRankings:   [],   // full set for related products
+    categories:    [],
+    subreddits:    [],
+    compareList:   [],
+    currentPage:   1,
+    totalItems:    0,
     filters: {
       category:  "",
       subreddit: "",
       usecase:   "",
     },
-    searchQuery:    "",
-    searchResults:  [],
-    searchTimer:    null,
-    activeCharts:   {},   // chart instances keyed by canvas id
+    searchTimer:   null,
+    activeCharts:  {},
   };
 
   /* ════════════════════════════════════════════
@@ -1253,6 +1419,17 @@
     Object.keys(state.activeCharts).forEach(destroyChart);
   }
 
+  // Determine if a product is "trending" (top 20% by score) or "verified" (high review count)
+  function isTrending(item) {
+    const score = item.sentiment_score || 0;
+    return score >= 0.8;
+  }
+
+  function isVerified(item) {
+    const total = (item.positive_count || 0) + (item.negative_count || 0) + (item.neutral_count || 0);
+    return total >= 50;
+  }
+
   /* ════════════════════════════════════════════
      API CALLS
   ════════════════════════════════════════════ */
@@ -1265,10 +1442,8 @@
   async function fetchRankings() {
     const { filters, currentPage } = state;
     const offset = (currentPage - 1) * PAGE_SIZE;
-    let path;
 
     if (filters.usecase) {
-      // Use-case endpoint returns different shape
       const data = await apiFetch(`/usecase/${encodeURIComponent(filters.usecase)}?limit=${PAGE_SIZE}`);
       const recs = (data.recommendations || []).map((r, i) => ({
         rank: i + 1,
@@ -1284,23 +1459,26 @@
       return;
     }
 
-    const params = new URLSearchParams({
-      limit:  PAGE_SIZE,
-      offset: offset,
-    });
+    const params = new URLSearchParams({ limit: PAGE_SIZE, offset });
     if (filters.category)  params.set("category",  filters.category);
     if (filters.subreddit) params.set("subreddit", filters.subreddit);
 
     const data = await apiFetch(`/rankings?${params}`);
-    state.rankings   = data.rankings || [];
-    // API doesn't return total count — estimate from returned length
+    state.rankings = data.rankings || [];
     if (state.rankings.length < PAGE_SIZE && currentPage === 1) {
       state.totalItems = state.rankings.length;
     } else if (state.rankings.length < PAGE_SIZE) {
       state.totalItems = (currentPage - 1) * PAGE_SIZE + state.rankings.length;
     } else {
-      state.totalItems = currentPage * PAGE_SIZE + 1; // at least one more page
+      state.totalItems = currentPage * PAGE_SIZE + 1;
     }
+  }
+
+  async function fetchAllRankings() {
+    try {
+      const data = await apiFetch("/rankings?limit=50");
+      state.allRankings = data.rankings || [];
+    } catch (_) { state.allRankings = []; }
   }
 
   async function fetchCategories() {
@@ -1311,13 +1489,10 @@
   }
 
   async function fetchSubreddits() {
-    // Derive subreddits from a small rankings sample
     try {
       const data = await apiFetch("/rankings?limit=50");
       const subs = new Set();
-      (data.rankings || []).forEach(r => {
-        if (r.subreddit) subs.add(r.subreddit);
-      });
+      (data.rankings || []).forEach(r => { if (r.subreddit) subs.add(r.subreddit); });
       state.subreddits = [...subs].sort();
     } catch (_) { state.subreddits = []; }
   }
@@ -1327,9 +1502,8 @@
   }
 
   async function fetchTrend(productId) {
-    try {
-      return apiFetch(`/trend/${encodeURIComponent(productId)}`);
-    } catch (_) { return { history: [] }; }
+    try { return apiFetch(`/trend/${encodeURIComponent(productId)}`); }
+    catch (_) { return { history: [] }; }
   }
 
   async function fetchCompare(ids) {
@@ -1351,30 +1525,32 @@
 
   function buildShell() {
     appEl.innerHTML = `
-      <!-- Top bar -->
-      <header class="top-bar">
-        <div class="top-bar-left">
-          <div class="logo-badge">
-            <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor"><circle cx="4" cy="4" r="4"/></svg>
-            Live
+      <!-- Header -->
+      <header class="widget-header">
+        <div class="header-left">
+          <div class="header-logo">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <circle cx="10" cy="10" r="10" fill="rgba(255,255,255,0.25)"/>
+              <path d="M10 4a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm-4 5.5c0-.83.67-1.5 1.5-1.5.4 0 .76.16 1.03.41A5.5 5.5 0 0 1 10 9c.54 0 1.06.08 1.54.22.27-.26.63-.42 1.03-.42.83 0 1.5.67 1.5 1.5 0 .6-.35 1.12-.86 1.37.05.27.08.55.08.83 0 2.21-1.79 4-4 4s-4-1.79-4-4c0-.28.03-.56.08-.83A1.5 1.5 0 0 1 6 9.5z" fill="white"/>
+            </svg>
+            Reddit Recs
           </div>
-          <span class="top-bar-title">Reddit Product Rankings</span>
+          <span class="live-dot">LIVE</span>
         </div>
 
-        <div class="search-wrap" id="search-wrap">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
-          <input type="text" id="search-input" placeholder="Search products…" autocomplete="off" />
-          <div id="search-dropdown" class="search-results-dropdown hidden"></div>
-        </div>
-
-        <div class="top-bar-right">
+        <div class="header-right">
+          <div class="search-wrap" id="search-wrap">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" id="search-input" placeholder="Search products…" autocomplete="off" />
+            <div id="search-dropdown" class="search-dropdown hidden"></div>
+          </div>
           <button class="theme-btn" id="theme-btn" title="Toggle dark/light mode" aria-label="Toggle theme">
-            <svg id="theme-icon-dark" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg id="theme-icon-dark" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
             </svg>
-            <svg id="theme-icon-light" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hidden">
+            <svg id="theme-icon-light" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hidden">
               <circle cx="12" cy="12" r="5"/>
               <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
               <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
@@ -1388,18 +1564,14 @@
       <!-- Filter bar -->
       <div class="filter-bar" id="filter-bar">
         <span class="filter-label">Filter</span>
-
         <select class="filter-select" id="filter-category">
           <option value="">All Categories</option>
         </select>
-
         <select class="filter-select" id="filter-subreddit">
           <option value="">All Subreddits</option>
         </select>
-
         <div class="filter-divider"></div>
-
-        <span class="filter-label">Use Case</span>
+        <span class="filter-label">Best For</span>
         <div class="filter-chips" id="usecase-chips"></div>
       </div>
 
@@ -1407,7 +1579,7 @@
       <main class="main-content" id="main-content">
         <div class="state-container">
           <div class="spinner"></div>
-          <span class="state-msg">Loading rankings…</span>
+          <span class="state-msg">Loading recommendations…</span>
         </div>
       </main>
 
@@ -1421,7 +1593,7 @@
       <div class="compare-bar" id="compare-bar">
         <div class="compare-bar-items">
           <span class="compare-bar-label">Compare:</span>
-          <div id="compare-chips"></div>
+          <div id="compare-chips" style="display:flex;gap:8px;flex-wrap:wrap"></div>
         </div>
         <div class="compare-actions">
           <button class="btn btn-secondary btn-sm" id="compare-clear-btn">Clear</button>
@@ -1444,7 +1616,7 @@
 
       <!-- Compare modal -->
       <div class="modal-overlay" id="compare-modal" role="dialog" aria-modal="true" aria-label="Product comparison">
-        <div class="modal" style="max-width:1000px">
+        <div class="modal" style="max-width:960px">
           <div class="modal-header">
             <span class="modal-title">Product Comparison</span>
             <button class="modal-close" id="compare-modal-close" aria-label="Close">✕</button>
@@ -1457,7 +1629,7 @@
   }
 
   /* ════════════════════════════════════════════
-     RENDER — FILTER OPTIONS
+     RENDER — FILTERS
   ════════════════════════════════════════════ */
   function populateFilters() {
     const catSel = document.getElementById("filter-category");
@@ -1481,7 +1653,7 @@
       const chip = document.createElement("button");
       chip.className = "chip" + (state.filters.usecase === uc.value ? " active" : "");
       chip.dataset.value = uc.value;
-      chip.textContent = uc.label;
+      chip.textContent = uc.emoji + " " + uc.label;
       chip.addEventListener("click", () => {
         state.filters.usecase = uc.value;
         state.currentPage = 1;
@@ -1499,6 +1671,7 @@
   ════════════════════════════════════════════ */
   function renderGrid() {
     const main = document.getElementById("main-content");
+
     if (!state.rankings.length) {
       main.innerHTML = `
         <div class="empty-state">
@@ -1509,11 +1682,23 @@
       return;
     }
 
+    // "Best for you" section
+    const bfyHTML = `
+      <div class="best-for-you">
+        <div class="bfy-title">✨ Best for you — quick picks</div>
+        <div class="bfy-buttons">
+          ${USECASE_OPTIONS.filter(u => u.value).map(u => `
+            <button class="bfy-btn${state.filters.usecase === u.value ? " active" : ""}" data-usecase="${esc(u.value)}">
+              ${u.emoji} ${u.label}
+            </button>`).join("")}
+        </div>
+      </div>`;
+
     const sectionHeader = `
       <div class="section-header">
         <div>
           <div class="section-title">Top Recommended Products</div>
-          <div class="section-subtitle">Ranked by real Reddit sentiment — updated daily</div>
+          <div class="section-subtitle">Ranked by real Reddit sentiment · updated daily</div>
         </div>
         <div class="section-actions">
           <span style="font-size:12px;color:var(--text-muted)">${state.rankings.length} products</span>
@@ -1525,20 +1710,22 @@
     grid.id = "product-grid";
 
     state.rankings.forEach((item, idx) => {
-      const product  = item.product || {};
-      const score    = item.sentiment_score || 0;
-      const posCount = item.positive_count  || 0;
-      const negCount = item.negative_count  || 0;
-      const neuCount = item.neutral_count   || 0;
-      const total    = posCount + negCount + neuCount;
-      const brand    = product.brand      || "Unknown Brand";
-      const model    = product.model_name || "Unknown Model";
-      const category = product.category   || "";
-      const imageUrl = product.image_url  || "";
-      const price    = product.amazon_price;
-      const rank     = item.rank || (idx + 1);
-      const pid      = item.product_id || product.id || "";
+      const product   = item.product || {};
+      const score     = item.sentiment_score || 0;
+      const posCount  = item.positive_count  || 0;
+      const negCount  = item.negative_count  || 0;
+      const neuCount  = item.neutral_count   || 0;
+      const total     = posCount + negCount + neuCount;
+      const brand     = product.brand      || "Unknown Brand";
+      const model     = product.model_name || "Unknown Model";
+      const category  = product.category   || "";
+      const imageUrl  = product.image_url  || "";
+      const price     = product.amazon_price;
+      const rank      = item.rank || (idx + 1);
+      const pid       = item.product_id || product.id || "";
       const isSelected = state.compareList.some(c => (c.product_id || c.product?.id) === pid);
+      const trending  = isTrending(item);
+      const verified  = isVerified(item);
 
       const card = document.createElement("div");
       card.className = "card";
@@ -1551,6 +1738,10 @@
                     onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
             : ""}
           <div class="card-img-placeholder" ${imageUrl ? 'style="display:none"' : ""}>📦</div>
+          <div class="card-badges">
+            ${trending ? `<span class="badge badge-trending">🔥 Trending</span>` : ""}
+            ${verified ? `<span class="badge badge-verified">✓ Verified</span>` : ""}
+          </div>
           <button class="card-compare-btn${isSelected ? " selected" : ""}"
                   data-pid="${esc(pid)}" title="Add to comparison">
             ${isSelected ? "✓ Added" : "+ Compare"}
@@ -1573,13 +1764,10 @@
           ${price ? `<div class="card-price">$${parseFloat(price).toFixed(2)}<span>on Amazon</span></div>` : ""}
         </div>`;
 
-      // Click card body → open detail
       card.querySelector(".card-body").addEventListener("click", () => openDetailModal(pid, item));
       card.querySelector(".card-image-wrap").addEventListener("click", (e) => {
         if (!e.target.classList.contains("card-compare-btn")) openDetailModal(pid, item);
       });
-
-      // Compare button
       card.querySelector(".card-compare-btn").addEventListener("click", (e) => {
         e.stopPropagation();
         toggleCompare(item, card.querySelector(".card-compare-btn"));
@@ -1590,14 +1778,29 @@
 
     const paginationHTML = renderPaginationHTML();
 
-    main.innerHTML = sectionHeader;
+    main.innerHTML = bfyHTML + sectionHeader;
     main.appendChild(grid);
+
     if (paginationHTML) {
       const pagDiv = document.createElement("div");
       pagDiv.innerHTML = paginationHTML;
       main.appendChild(pagDiv.firstElementChild);
       bindPaginationEvents();
     }
+
+    // Bind "Best for you" quick-pick buttons
+    main.querySelectorAll(".bfy-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const uc = btn.dataset.usecase;
+        state.filters.usecase = state.filters.usecase === uc ? "" : uc;
+        state.currentPage = 1;
+        // Sync chip bar
+        document.querySelectorAll(".filter-chips .chip").forEach(c => {
+          c.classList.toggle("active", c.dataset.value === state.filters.usecase);
+        });
+        loadAndRenderRankings();
+      });
+    });
   }
 
   /* ════════════════════════════════════════════
@@ -1660,8 +1863,8 @@
   }
 
   function updateCompareBar() {
-    const bar      = document.getElementById("compare-bar");
-    const chipsEl  = document.getElementById("compare-chips");
+    const bar     = document.getElementById("compare-bar");
+    const chipsEl = document.getElementById("compare-chips");
 
     if (!state.compareList.length) {
       bar.classList.remove("visible");
@@ -1683,7 +1886,6 @@
       btn.addEventListener("click", () => {
         const pid = btn.dataset.pid;
         state.compareList = state.compareList.filter(c => (c.product_id || c.product?.id) !== pid);
-        // Update card button if visible
         const cardBtn = document.querySelector(`.card-compare-btn[data-pid="${CSS.escape(pid)}"]`);
         if (cardBtn) { cardBtn.textContent = "+ Compare"; cardBtn.classList.remove("selected"); }
         updateCompareBar();
@@ -1719,10 +1921,10 @@
     const cols     = products.length;
 
     const colsHTML = products.map(p => {
-      const score     = p.sentiment_score || 0;
-      const isWinner  = score === maxScore && cols > 1;
-      const pct       = Math.round(score * 100);
-      const total     = (p.positive_count || 0) + (p.negative_count || 0);
+      const score    = p.sentiment_score || 0;
+      const isWinner = score === maxScore && cols > 1;
+      const pct      = Math.round(score * 100);
+      const total    = (p.positive_count || 0) + (p.negative_count || 0);
 
       const prosHTML = (p.pros || []).map(pr =>
         `<div class="compare-pc-item">✓ ${esc(pr.aspect)} <span style="color:var(--text-muted);font-size:10px">(${pr.count})</span></div>`
@@ -1733,7 +1935,7 @@
       ).join("") || `<div class="compare-pc-item text-muted">No data</div>`;
 
       const subredditsHTML = (p.subreddits || []).filter(Boolean).map(s =>
-        `<span style="font-size:10px;color:var(--accent)">r/${esc(s)}</span>`
+        `<span style="font-size:10px;color:var(--orange-dark)">r/${esc(s)}</span>`
       ).join(" · ") || `<span style="font-size:10px;color:var(--text-muted)">—</span>`;
 
       return `
@@ -1774,10 +1976,7 @@
         </div>`;
     }).join("");
 
-    body.innerHTML = `
-      <div class="compare-grid cols-${cols}">
-        ${colsHTML}
-      </div>`;
+    body.innerHTML = `<div class="compare-grid cols-${cols}">${colsHTML}</div>`;
   }
 
   /* ════════════════════════════════════════════
@@ -1789,8 +1988,7 @@
     const body  = document.getElementById("detail-modal-body");
     const title = document.getElementById("detail-modal-title");
 
-    const model = rankingItem?.product?.model_name || "Product Detail";
-    title.textContent = model;
+    title.textContent = rankingItem?.product?.model_name || "Product Detail";
     body.innerHTML = `<div class="state-container"><div class="spinner"></div><span class="state-msg">Loading…</span></div>`;
     openModal(modal);
 
@@ -1841,21 +2039,97 @@
           </div>`).join("")
       : `<div class="pc-item text-muted">No aspect data available</div>`;
 
-    const reviewsHTML = reviews.length
-      ? reviews.map(r => `
-          <div class="review-card">
-            <div class="review-header">
-              <div class="review-meta">
-                ${r.subreddit ? `<span class="review-sub">r/${esc(r.subreddit)}</span>` : ""}
-                ${r.created_at ? `<span class="review-date">${formatDate(r.created_at)}</span>` : ""}
+    // Build subreddit heatmap from reviews
+    const subCounts = {};
+    reviews.forEach(r => {
+      if (r.subreddit) {
+        subCounts[r.subreddit] = (subCounts[r.subreddit] || 0) + 1;
+      }
+    });
+    const subEntries = Object.entries(subCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    const maxSubCount = subEntries.length ? subEntries[0][1] : 1;
+
+    const heatmapHTML = subEntries.length ? `
+      <div class="heatmap-wrap">
+        <div class="heatmap-title">📊 Subreddit Activity Heatmap</div>
+        <div class="heatmap-grid">
+          ${subEntries.map(([sub, count]) => {
+            const pct = Math.round((count / maxSubCount) * 100);
+            return `
+              <div class="heatmap-row">
+                <div class="heatmap-label">r/${esc(sub)}</div>
+                <div class="heatmap-bar-track">
+                  <div class="heatmap-bar-fill" style="width:${pct}%">
+                    ${pct > 20 ? `<span class="heatmap-bar-text">${count} posts</span>` : ""}
+                  </div>
+                </div>
+                <div class="heatmap-count">${count}</div>
+              </div>`;
+          }).join("")}
+        </div>
+      </div>` : "";
+
+    // Reddit preview posts
+    const redditPreviewHTML = reviews.length ? `
+      <div class="reddit-preview-wrap" id="reddit-preview-wrap">
+        ${reviews.slice(0, 5).map((r, i) => {
+          const isLong = (r.verbatim || "").length > 200;
+          return `
+            <div class="reddit-post">
+              <div class="reddit-post-header">
+                <div class="reddit-post-meta">
+                  <div class="reddit-icon">
+                    <svg viewBox="0 0 20 20"><path d="M10 0C4.48 0 0 4.48 0 10s4.48 10 10 10 10-4.48 10-10S15.52 0 10 0zm5.25 10.5c.04.25.06.5.06.75 0 2.9-3.28 5.25-7.31 5.25S.75 14.15.75 11.25c0-.25.02-.5.06-.75a1.5 1.5 0 1 1 1.44-2.5c1.3-.9 3.1-1.5 5.1-1.5.1 0 .2 0 .3.01l.8-3.6.01-.04c.06-.28.32-.47.6-.44l2.5.5c.2-.4.62-.67 1.1-.67.69 0 1.25.56 1.25 1.25S13.44 5 12.75 5c-.67 0-1.22-.53-1.25-1.19l-2.2-.44-.7 3.13c1.97.05 3.74.65 5.02 1.54a1.5 1.5 0 1 1 1.63 2.46zM7 12a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm6 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 2.5c1.1 0 2-.45 2-.5H8c0 .05.9.5 2 .5z"/></svg>
+                  </div>
+                  ${r.subreddit ? `<span class="reddit-sub">r/${esc(r.subreddit)}</span>` : ""}
+                  ${r.created_at ? `<span class="reddit-date">${formatDate(r.created_at)}</span>` : ""}
+                </div>
+                <span class="reddit-sentiment-badge ${esc(r.sentiment || "neutral")}">${esc(r.sentiment || "neutral")}</span>
               </div>
-              <span class="sentiment-badge ${esc(r.sentiment || "neutral")}">${esc(r.sentiment || "neutral")}</span>
-            </div>
-            <p class="review-text">${esc(r.verbatim || "")}</p>
-          </div>`).join("")
-      : `<div class="empty-state"><div class="empty-icon">💬</div><div class="empty-title">No reviews yet</div></div>`;
+              <div class="reddit-post-body">
+                <p class="reddit-post-text${isLong ? " collapsed" : ""}" id="rpt-${i}">${esc(r.verbatim || "")}</p>
+                ${isLong ? `<button class="reddit-expand-btn" data-idx="${i}" data-expanded="false">Show more ▾</button>` : ""}
+              </div>
+            </div>`;
+        }).join("")}
+      </div>` : `<div class="empty-state"><div class="empty-icon">💬</div><div class="empty-title">No Reddit posts yet</div></div>`;
+
+    // Related products from same category
+    const category = product.category || "";
+    const related = state.allRankings
+      .filter(r => {
+        const pid = r.product_id || r.product?.id;
+        const curPid = rankingItem?.product_id || rankingItem?.product?.id;
+        return r.product?.category === category && pid !== curPid;
+      })
+      .slice(0, 4);
+
+    const relatedHTML = related.length ? `
+      <div class="related-wrap">
+        <div class="related-title">🔗 Related Products in ${esc(category)}</div>
+        <div class="related-grid">
+          ${related.map(r => {
+            const rPid   = r.product_id || r.product?.id || "";
+            const rModel = r.product?.model_name || "Product";
+            const rImg   = r.product?.image_url  || "";
+            const rScore = Math.round((r.sentiment_score || 0) * 100);
+            return `
+              <div class="related-card" data-pid="${esc(rPid)}">
+                <div class="related-card-img">
+                  ${rImg
+                    ? `<img src="${esc(rImg)}" alt="${esc(rModel)}" loading="lazy">`
+                    : `<span style="font-size:28px;opacity:0.2">📦</span>`}
+                </div>
+                <div class="related-card-name">${esc(rModel)}</div>
+                <div class="related-card-score">${rScore}% positive</div>
+              </div>`;
+          }).join("")}
+        </div>
+      </div>` : "";
 
     const hasTrend = history.length > 1;
+    const trending = isTrending(ranking);
+    const verified = isVerified(ranking);
 
     body.innerHTML = `
       <!-- Hero -->
@@ -1863,7 +2137,7 @@
         <div class="detail-image-wrap">
           ${product.image_url
             ? `<img src="${esc(product.image_url)}" alt="${esc(product.model_name || "")}" loading="lazy">`
-            : `<span style="font-size:56px;opacity:0.2">📦</span>`}
+            : `<span style="font-size:52px;opacity:0.18">📦</span>`}
         </div>
         <div class="detail-info">
           <div>
@@ -1871,9 +2145,13 @@
             <div class="detail-name">${esc(product.model_name || "")}</div>
             ${product.category ? `<div class="detail-category">${esc(product.category)}</div>` : ""}
           </div>
+          <div class="detail-badges">
+            ${trending ? `<span class="badge badge-trending">🔥 Trending</span>` : ""}
+            ${verified ? `<span class="badge badge-verified">✓ Verified</span>` : ""}
+          </div>
           <div class="detail-stats">
             <div class="stat-box">
-              <div class="stat-value ${scoreClass(score) === "high" ? "positive" : scoreClass(score) === "low" ? "negative" : ""}">${scorePct(score)}</div>
+              <div class="stat-value orange">${scorePct(score)}</div>
               <div class="stat-label">Positive</div>
             </div>
             <div class="stat-box">
@@ -1882,15 +2160,15 @@
             </div>
             <div class="stat-box">
               <div class="stat-value positive">${posCount.toLocaleString()}</div>
-              <div class="stat-label">Positive</div>
+              <div class="stat-label">👍 Pos</div>
             </div>
             <div class="stat-box">
               <div class="stat-value negative">${negCount.toLocaleString()}</div>
-              <div class="stat-label">Negative</div>
+              <div class="stat-label">👎 Neg</div>
             </div>
             ${percentile ? `
             <div class="stat-box">
-              <div class="stat-value">${percentile}th</div>
+              <div class="stat-value orange">${percentile}th</div>
               <div class="stat-label">Percentile</div>
             </div>` : ""}
           </div>
@@ -1899,7 +2177,7 @@
             ${product.amazon_url
               ? `<a href="${esc(product.amazon_url)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">View on Amazon ↗</a>`
               : ""}
-            <button class="btn btn-secondary btn-sm" id="detail-add-compare">+ Add to Compare</button>
+            <button class="btn btn-outline btn-sm" id="detail-add-compare">+ Add to Compare</button>
           </div>
         </div>
       </div>
@@ -1907,8 +2185,10 @@
       <!-- Tabs -->
       <div class="tabs">
         <button class="tab-btn active" data-tab="overview">Overview</button>
-        <button class="tab-btn" data-tab="reviews">Reviews (${reviews.length})</button>
+        <button class="tab-btn" data-tab="reddit">Reddit Posts (${reviews.length})</button>
+        ${heatmapHTML ? `<button class="tab-btn" data-tab="heatmap">Subreddit Map</button>` : ""}
         ${hasTrend ? `<button class="tab-btn" data-tab="trend">Sentiment Trend</button>` : ""}
+        ${relatedHTML ? `<button class="tab-btn" data-tab="related">Related</button>` : ""}
       </div>
 
       <!-- Overview tab -->
@@ -1926,10 +2206,16 @@
         ${sentimentBarHTML(posCount, negCount, neuCount)}
       </div>
 
-      <!-- Reviews tab -->
-      <div class="tab-panel" id="tab-reviews">
-        <div class="review-list">${reviewsHTML}</div>
+      <!-- Reddit Posts tab -->
+      <div class="tab-panel" id="tab-reddit">
+        ${redditPreviewHTML}
       </div>
+
+      ${heatmapHTML ? `
+      <!-- Heatmap tab -->
+      <div class="tab-panel" id="tab-heatmap">
+        ${heatmapHTML}
+      </div>` : ""}
 
       ${hasTrend ? `
       <!-- Trend tab -->
@@ -1940,6 +2226,12 @@
             <canvas id="trend-chart"></canvas>
           </div>
         </div>
+      </div>` : ""}
+
+      ${relatedHTML ? `
+      <!-- Related tab -->
+      <div class="tab-panel" id="tab-related">
+        ${relatedHTML}
       </div>` : ""}`;
 
     // Tab switching
@@ -1956,6 +2248,32 @@
       });
     });
 
+    // Reddit expand/collapse
+    body.querySelectorAll(".reddit-expand-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const idx      = btn.dataset.idx;
+        const expanded = btn.dataset.expanded === "true";
+        const textEl   = body.querySelector(`#rpt-${idx}`);
+        if (textEl) {
+          textEl.classList.toggle("collapsed", expanded);
+          btn.textContent = expanded ? "Show more ▾" : "Show less ▴";
+          btn.dataset.expanded = String(!expanded);
+        }
+      });
+    });
+
+    // Related product clicks
+    body.querySelectorAll(".related-card").forEach(card => {
+      card.addEventListener("click", () => {
+        const pid = card.dataset.pid;
+        const relItem = state.allRankings.find(r => (r.product_id || r.product?.id) === pid);
+        if (pid) {
+          closeModal(document.getElementById("detail-modal"));
+          setTimeout(() => openDetailModal(pid, relItem || { product_id: pid, product: {} }), 200);
+        }
+      });
+    });
+
     // Add to compare
     const addCompareBtn = body.querySelector("#detail-add-compare");
     if (addCompareBtn && rankingItem) {
@@ -1968,7 +2286,6 @@
         addCompareBtn.textContent = "✓ In Compare";
         addCompareBtn.disabled = true;
         updateCompareBar();
-        // Update card button if visible
         const cardBtn = document.querySelector(`.card-compare-btn[data-pid="${CSS.escape(pid)}"]`);
         if (cardBtn) { cardBtn.textContent = "✓ Added"; cardBtn.classList.add("selected"); }
       });
@@ -1980,11 +2297,11 @@
     const canvas = document.getElementById("trend-chart");
     if (!canvas || !history.length) return;
 
-    const labels = history.map(h => h.date ? formatDate(h.date) : "");
-    const scores = history.map(h => Math.round((h.sentiment_score || 0) * 100));
-    const isDark  = document.documentElement.getAttribute("data-theme") !== "light";
+    const labels    = history.map(h => h.date ? formatDate(h.date) : "");
+    const scores    = history.map(h => Math.round((h.sentiment_score || 0) * 100));
+    const isDark    = document.documentElement.getAttribute("data-theme") === "dark";
     const gridColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
-    const textColor = isDark ? "#64748b" : "#94a3b8";
+    const textColor = isDark ? "#888888" : "#95a5a6";
 
     state.activeCharts["trend-chart"] = new Chart(canvas, {
       type: "line",
@@ -1993,11 +2310,11 @@
         datasets: [{
           label: "Sentiment %",
           data: scores,
-          borderColor: "#6c63ff",
-          backgroundColor: "rgba(108,99,255,0.12)",
-          borderWidth: 2,
+          borderColor: "#f39c12",
+          backgroundColor: "rgba(243,156,18,0.1)",
+          borderWidth: 2.5,
           pointRadius: 4,
-          pointBackgroundColor: "#6c63ff",
+          pointBackgroundColor: "#f39c12",
           fill: true,
           tension: 0.35,
         }]
@@ -2007,9 +2324,7 @@
         maintainAspectRatio: false,
         plugins: {
           legend: { display: false },
-          tooltip: {
-            callbacks: { label: ctx => ` ${ctx.parsed.y}% positive` }
-          }
+          tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y}% positive` } }
         },
         scales: {
           x: {
@@ -2069,7 +2384,7 @@
             <div class="search-result-name">${esc(r.model_name || "")}</div>
             <div class="search-result-brand">${esc(r.brand || "")} · ${esc(r.category || "")}</div>
           </div>
-          ${pct ? `<span class="search-result-score ${scoreClass(score)}" style="color:var(--${scoreClass(score) === "high" ? "positive" : scoreClass(score) === "low" ? "negative" : "warning"})">${pct}</span>` : ""}
+          ${pct ? `<span class="search-result-score">${pct}</span>` : ""}
         </div>`;
     }).join("");
 
@@ -2078,7 +2393,6 @@
         const pid = item.dataset.productId;
         dropdown.classList.add("hidden");
         document.getElementById("search-input").value = "";
-        // Build a minimal ranking item for the detail modal
         const result = results.find(r => r.id === pid);
         const fakeRanking = {
           product_id: pid,
@@ -2110,7 +2424,6 @@
   }
 
   function bindModalEvents() {
-    // Detail modal
     document.getElementById("detail-modal-close").addEventListener("click", () => {
       closeModal(document.getElementById("detail-modal"));
     });
@@ -2118,7 +2431,6 @@
       if (e.target === e.currentTarget) closeModal(e.currentTarget);
     });
 
-    // Compare modal
     document.getElementById("compare-modal-close").addEventListener("click", () => {
       closeModal(document.getElementById("compare-modal"));
     });
@@ -2126,7 +2438,6 @@
       if (e.target === e.currentTarget) closeModal(e.currentTarget);
     });
 
-    // Compare bar buttons
     document.getElementById("compare-run-btn").addEventListener("click", openCompareModal);
     document.getElementById("compare-clear-btn").addEventListener("click", () => {
       state.compareList = [];
@@ -2137,7 +2448,6 @@
       updateCompareBar();
     });
 
-    // Keyboard ESC
     document.addEventListener("keydown", e => {
       if (e.key === "Escape") {
         closeModal(document.getElementById("detail-modal"));
@@ -2154,12 +2464,11 @@
     const iconDark  = document.getElementById("theme-icon-dark");
     const iconLight = document.getElementById("theme-icon-light");
 
-    // Restore saved preference
     const saved = localStorage.getItem("widget-theme");
     if (saved) applyTheme(saved);
 
     btn.addEventListener("click", () => {
-      const current = document.documentElement.getAttribute("data-theme") || "dark";
+      const current = document.documentElement.getAttribute("data-theme") || "light";
       const next    = current === "dark" ? "light" : "dark";
       applyTheme(next);
       localStorage.setItem("widget-theme", next);
@@ -2167,7 +2476,7 @@
 
     function applyTheme(theme) {
       document.documentElement.setAttribute("data-theme", theme);
-      if (theme === "light") {
+      if (theme === "dark") {
         iconDark.classList.add("hidden");
         iconLight.classList.remove("hidden");
       } else {
@@ -2195,7 +2504,7 @@
   }
 
   /* ════════════════════════════════════════════
-     LOAD & RENDER RANKINGS
+     LOAD & RENDER
   ════════════════════════════════════════════ */
   async function loadAndRenderRankings() {
     const main = document.getElementById("main-content");
@@ -2218,7 +2527,6 @@
      BOOT
   ════════════════════════════════════════════ */
   async function boot() {
-    // Anti-embedding check
     if (!isEmbeddingAllowed()) {
       appEl.innerHTML = `
         <div class="blocked">
@@ -2229,20 +2537,19 @@
       return;
     }
 
-    // Build shell
     buildShell();
-
-    // Bind all events
     bindThemeToggle();
     bindModalEvents();
     bindSearch();
 
-    // Fetch supporting data in parallel
-    await Promise.allSettled([fetchCategories(), fetchSubreddits()]);
+    await Promise.allSettled([
+      fetchCategories(),
+      fetchSubreddits(),
+      fetchAllRankings(),
+    ]);
+
     populateFilters();
     bindFilterEvents();
-
-    // Load initial rankings
     await loadAndRenderRankings();
   }
 
