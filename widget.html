@@ -1,61 +1,56 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reddit Product Recommendations — AirLucent</title>
+  <title>Reddit Product Reviews — AirLucent</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     /* ══════════════════════════════════════════
-       RESET & TOKENS
+       RESET & BASE
     ══════════════════════════════════════════ */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      /* Dark theme (default) */
-      --bg:            #0f1117;
-      --surface:       #1a1d27;
-      --surface-2:     #22263a;
-      --surface-3:     #2a2f47;
-      --border:        #2e3350;
-      --border-light:  #3a4060;
-      --accent:        #6c63ff;
-      --accent-2:      #8b83ff;
-      --accent-glow:   rgba(108,99,255,0.22);
-      --positive:      #22c55e;
-      --negative:      #ef4444;
-      --neutral:       #94a3b8;
-      --warning:       #eab308;
-      --text:          #e2e8f0;
-      --text-muted:    #64748b;
-      --text-dim:      #94a3b8;
+      --orange:        #f39c12;
+      --orange-dark:   #e67e22;
+      --orange-light:  #fdebd0;
+      --orange-glow:   rgba(243,156,18,0.18);
+      --bg:            #fff7f0;
+      --surface:       #ffffff;
+      --surface-2:     #fef9f4;
+      --surface-3:     #fdebd0;
+      --border:        #f5cba7;
+      --border-light:  #fad7a0;
+      --positive:      #27ae60;
+      --negative:      #e74c3c;
+      --neutral:       #95a5a6;
+      --warning:       #f39c12;
+      --text:          #2c3e50;
+      --text-muted:    #7f8c8d;
+      --text-dim:      #95a5a6;
       --radius:        14px;
       --radius-sm:     8px;
       --radius-xs:     5px;
-      --shadow:        0 4px 24px rgba(0,0,0,0.45);
-      --shadow-lg:     0 12px 48px rgba(0,0,0,0.6);
+      --shadow:        0 4px 20px rgba(243,156,18,0.10);
+      --shadow-lg:     0 12px 40px rgba(243,156,18,0.18);
       --transition:    0.18s ease;
     }
 
-    [data-theme="light"] {
-      --bg:            #f0f2f8;
-      --surface:       #ffffff;
-      --surface-2:     #f4f6fb;
-      --surface-3:     #e8ecf5;
-      --border:        #dde2f0;
-      --border-light:  #c8d0e8;
-      --accent:        #5b52e8;
-      --accent-2:      #7b74f0;
-      --accent-glow:   rgba(91,82,232,0.12);
-      --positive:      #16a34a;
-      --negative:      #dc2626;
-      --neutral:       #64748b;
-      --warning:       #ca8a04;
-      --text:          #1e2235;
-      --text-muted:    #8896b0;
-      --text-dim:      #64748b;
-      --shadow:        0 4px 20px rgba(0,0,0,0.08);
-      --shadow-lg:     0 12px 40px rgba(0,0,0,0.14);
+    body.dark-mode {
+      --bg:            #1a1208;
+      --surface:       #241a0a;
+      --surface-2:     #2e2010;
+      --surface-3:     #3a2a14;
+      --border:        #4a3520;
+      --border-light:  #5a4530;
+      --text:          #f0e6d3;
+      --text-muted:    #a08060;
+      --text-dim:      #c0a070;
+      --shadow:        0 4px 24px rgba(0,0,0,0.5);
+      --shadow-lg:     0 12px 48px rgba(0,0,0,0.65);
+      --orange-light:  #3a2a14;
+      --orange-glow:   rgba(243,156,18,0.12);
     }
 
     html, body {
@@ -66,137 +61,98 @@
       font-size: 14px;
       line-height: 1.5;
       -webkit-font-smoothing: antialiased;
+      transition: background 0.3s ease, color 0.3s ease;
     }
 
     /* ══════════════════════════════════════════
-       LAYOUT SHELL
+       HEADER
     ══════════════════════════════════════════ */
-    #app {
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-    }
-
-    .top-bar {
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 0 20px;
-      height: 56px;
+    .widget-header {
+      background: linear-gradient(135deg, var(--orange) 0%, var(--orange-dark) 100%);
+      color: #fff;
+      padding: 18px 24px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 4px 16px rgba(243,156,18,0.35);
+      position: sticky;
+      top: 0;
+      z-index: 100;
     }
 
-    .top-bar-left {
+    .header-left {
       display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-shrink: 0;
+      flex-direction: column;
+      gap: 2px;
     }
 
-    .logo-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: var(--accent-glow);
-      border: 1px solid var(--accent);
-      color: var(--accent);
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      padding: 3px 10px;
-      border-radius: 999px;
+    .header-title {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
     }
 
-    .top-bar-title {
-      font-size: 15px;
-      font-weight: 700;
-      color: var(--text);
-      white-space: nowrap;
+    .header-subtitle {
+      font-size: 11px;
+      opacity: 0.85;
+      font-weight: 500;
     }
 
-    .top-bar-right {
+    .header-right {
       display: flex;
       align-items: center;
       gap: 8px;
     }
 
-    /* Search */
-    .search-wrap {
-      position: relative;
-      flex: 1;
-      max-width: 320px;
-    }
-    .search-wrap svg {
-      position: absolute;
-      left: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--text-muted);
-      pointer-events: none;
-    }
-    #search-input {
-      width: 100%;
-      background: var(--surface-2);
-      border: 1px solid var(--border);
+    .dark-toggle {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.35);
       border-radius: var(--radius-sm);
-      color: var(--text);
-      font-size: 13px;
-      padding: 7px 10px 7px 32px;
-      outline: none;
-      transition: border-color var(--transition);
-    }
-    #search-input::placeholder { color: var(--text-muted); }
-    #search-input:focus { border-color: var(--accent); }
-
-    /* Dark mode toggle */
-    .theme-btn {
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      color: var(--text-dim);
+      color: #fff;
       cursor: pointer;
-      padding: 6px 8px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
       display: flex;
       align-items: center;
-      justify-content: center;
-      transition: background var(--transition), color var(--transition);
-      flex-shrink: 0;
+      gap: 5px;
+      transition: background var(--transition);
     }
-    .theme-btn:hover { background: var(--surface-3); color: var(--text); }
+    .dark-toggle:hover { background: rgba(255,255,255,0.3); }
 
     /* ══════════════════════════════════════════
-       FILTER BAR
+       FILTER SECTION
     ══════════════════════════════════════════ */
-    .filter-bar {
+    .filter-section {
       background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 10px 20px;
+      border-bottom: 2px solid var(--border);
+      padding: 14px 24px;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
       flex-wrap: wrap;
+    }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
     .filter-label {
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.08em;
       color: var(--text-muted);
-      flex-shrink: 0;
+      white-space: nowrap;
     }
 
     .filter-select {
       background: var(--surface-2);
-      border: 1px solid var(--border);
+      border: 1.5px solid var(--border);
       border-radius: var(--radius-sm);
       color: var(--text);
       font-size: 12px;
@@ -205,58 +161,195 @@
       cursor: pointer;
       appearance: none;
       -webkit-appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23f39c12' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
       background-position: right 8px center;
       transition: border-color var(--transition);
     }
-    .filter-select:focus { border-color: var(--accent); }
-
-    .filter-chips {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-
-    .chip {
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      color: var(--text-dim);
-      font-size: 11px;
-      font-weight: 500;
-      padding: 4px 12px;
-      cursor: pointer;
-      transition: all var(--transition);
-      white-space: nowrap;
-    }
-    .chip:hover { border-color: var(--accent); color: var(--accent); }
-    .chip.active {
-      background: var(--accent-glow);
-      border-color: var(--accent);
-      color: var(--accent);
-      font-weight: 600;
-    }
+    .filter-select:focus { border-color: var(--orange); }
 
     .filter-divider {
       width: 1px;
-      height: 20px;
+      height: 22px;
       background: var(--border);
       flex-shrink: 0;
     }
 
     /* ══════════════════════════════════════════
+       PERSONALISED SECTION
+    ══════════════════════════════════════════ */
+    .personalised-section {
+      background: linear-gradient(135deg, var(--orange-light) 0%, var(--surface) 100%);
+      border-bottom: 2px solid var(--border);
+      padding: 16px 24px;
+    }
+
+    .personalised-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .personalised-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--orange-dark);
+    }
+
+    .personalised-subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .usecase-buttons {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .usecase-btn {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 999px;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 14px;
+      cursor: pointer;
+      transition: all var(--transition);
+      white-space: nowrap;
+    }
+    .usecase-btn:hover {
+      border-color: var(--orange);
+      color: var(--orange-dark);
+      background: var(--orange-glow);
+    }
+    .usecase-btn.active {
+      background: var(--orange);
+      border-color: var(--orange);
+      color: #fff;
+      font-weight: 700;
+    }
+
+    /* ══════════════════════════════════════════
+       COMPARE BAR
+    ══════════════════════════════════════════ */
+    .compare-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 200;
+      background: var(--surface);
+      border-top: 2px solid var(--orange);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      box-shadow: 0 -4px 24px rgba(243,156,18,0.2);
+      transform: translateY(100%);
+      transition: transform 0.25s ease;
+    }
+    .compare-bar.visible { transform: translateY(0); }
+
+    .compare-bar-items {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .compare-bar-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--orange-dark);
+      white-space: nowrap;
+    }
+
+    .compare-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--orange-light);
+      border: 1.5px solid var(--orange);
+      border-radius: var(--radius-sm);
+      padding: 4px 10px;
+      font-size: 12px;
+      color: var(--text);
+      white-space: nowrap;
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .compare-chip-remove {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      padding: 0;
+      flex-shrink: 0;
+    }
+    .compare-chip-remove:hover { color: var(--negative); }
+
+    .compare-actions {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    /* ══════════════════════════════════════════
+       BUTTONS
+    ══════════════════════════════════════════ */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 16px;
+      cursor: pointer;
+      transition: all var(--transition);
+      border: 1.5px solid transparent;
+      white-space: nowrap;
+      text-decoration: none;
+    }
+    .btn-primary {
+      background: var(--orange);
+      color: #fff;
+      border-color: var(--orange);
+    }
+    .btn-primary:hover { background: var(--orange-dark); border-color: var(--orange-dark); }
+    .btn-secondary {
+      background: var(--surface-2);
+      color: var(--text);
+      border-color: var(--border);
+    }
+    .btn-secondary:hover { border-color: var(--orange); color: var(--orange-dark); }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-muted);
+      border-color: transparent;
+    }
+    .btn-ghost:hover { color: var(--text); background: var(--surface-2); }
+    .btn-sm { padding: 5px 12px; font-size: 12px; }
+    .btn-xs { padding: 3px 8px; font-size: 11px; }
+
+    /* ══════════════════════════════════════════
        MAIN CONTENT
     ══════════════════════════════════════════ */
     .main-content {
-      flex: 1;
-      padding: 24px 20px 48px;
+      padding: 24px;
       max-width: 1200px;
-      width: 100%;
       margin: 0 auto;
     }
 
-    /* Section header */
     .section-header {
       display: flex;
       align-items: center;
@@ -264,20 +357,17 @@
       margin-bottom: 20px;
       gap: 12px;
     }
+
     .section-title {
       font-size: 18px;
       font-weight: 700;
       color: var(--text);
     }
+
     .section-subtitle {
       font-size: 12px;
       color: var(--text-muted);
       margin-top: 2px;
-    }
-    .section-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
     }
 
     /* ══════════════════════════════════════════
@@ -292,7 +382,7 @@
     /* ── Card ── */
     .card {
       background: var(--surface);
-      border: 1px solid var(--border);
+      border: 1.5px solid var(--border);
       border-radius: var(--radius);
       overflow: hidden;
       display: flex;
@@ -304,7 +394,7 @@
     .card:hover {
       transform: translateY(-3px);
       box-shadow: var(--shadow-lg);
-      border-color: var(--accent);
+      border-color: var(--orange);
     }
 
     .card-image-wrap {
@@ -329,7 +419,7 @@
       position: absolute;
       top: 10px;
       left: 10px;
-      background: var(--accent);
+      background: var(--orange);
       color: #fff;
       font-size: 10px;
       font-weight: 700;
@@ -338,12 +428,39 @@
       letter-spacing: 0.05em;
     }
 
-    .card-compare-btn {
+    .card-badges {
       position: absolute;
       top: 10px;
       right: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: flex-end;
+    }
+
+    .badge {
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 999px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .badge-trending {
+      background: rgba(231,76,60,0.9);
+      color: #fff;
+    }
+    .badge-verified {
+      background: rgba(39,174,96,0.9);
+      color: #fff;
+    }
+
+    .card-compare-btn {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
       background: var(--surface);
-      border: 1px solid var(--border);
+      border: 1.5px solid var(--border);
       border-radius: var(--radius-xs);
       color: var(--text-muted);
       font-size: 10px;
@@ -356,9 +473,9 @@
     .card:hover .card-compare-btn { opacity: 1; }
     .card-compare-btn:hover,
     .card-compare-btn.selected {
-      background: var(--accent-glow);
-      border-color: var(--accent);
-      color: var(--accent);
+      background: var(--orange-glow);
+      border-color: var(--orange);
+      color: var(--orange-dark);
     }
     .card-compare-btn.selected { opacity: 1; }
 
@@ -375,7 +492,7 @@
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.1em;
-      color: var(--accent);
+      color: var(--orange-dark);
     }
     .card-name {
       font-size: 14px;
@@ -404,9 +521,9 @@
       font-size: 12px;
       font-weight: 700;
     }
-    .score-pill.high   { background: rgba(34,197,94,0.12);  color: var(--positive); }
-    .score-pill.medium { background: rgba(234,179,8,0.12);  color: var(--warning); }
-    .score-pill.low    { background: rgba(239,68,68,0.12);  color: var(--negative); }
+    .score-pill.high   { background: rgba(39,174,96,0.12);  color: var(--positive); }
+    .score-pill.medium { background: rgba(243,156,18,0.12); color: var(--warning); }
+    .score-pill.low    { background: rgba(231,76,60,0.12);  color: var(--negative); }
     .score-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
     .review-count {
@@ -433,7 +550,6 @@
     .seg-neu { background: var(--neutral); opacity: 0.5; }
     .seg-neg { background: var(--negative); }
 
-    /* Price tag */
     .card-price {
       font-size: 13px;
       font-weight: 700;
@@ -447,153 +563,508 @@
     }
 
     /* ══════════════════════════════════════════
-       PAGINATION
+       LOAD MORE
     ══════════════════════════════════════════ */
-    .pagination {
+    .load-more-wrap {
+      text-align: center;
+      margin-top: 28px;
+    }
+
+    /* ══════════════════════════════════════════
+       DETAIL VIEW (full-page overlay)
+    ══════════════════════════════════════════ */
+    .detail-view {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 300;
+      background: var(--bg);
+      overflow-y: auto;
+    }
+    .detail-view.open { display: block; }
+
+    .detail-topbar {
+      background: var(--surface);
+      border-bottom: 2px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .detail-back {
+      background: var(--surface-2);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      cursor: pointer;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: all var(--transition);
+    }
+    .detail-back:hover { border-color: var(--orange); color: var(--orange-dark); }
+
+    .detail-topbar-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .detail-body {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 28px 24px 80px;
+    }
+
+    /* Hero */
+    .detail-hero {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 28px;
+      margin-bottom: 32px;
+    }
+    @media (max-width: 640px) {
+      .detail-hero { grid-template-columns: 1fr; }
+    }
+
+    .detail-image-wrap {
+      background: var(--surface-2);
+      border-radius: var(--radius);
+      border: 1.5px solid var(--border);
+      height: 220px;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      margin-top: 32px;
+      overflow: hidden;
+      position: relative;
     }
-    .page-btn {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      color: var(--text-dim);
-      font-size: 13px;
-      font-weight: 500;
-      padding: 7px 14px;
-      cursor: pointer;
-      transition: all var(--transition);
+    .detail-image-wrap img {
+      max-height: 200px;
+      max-width: 90%;
+      object-fit: contain;
     }
-    .page-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
-    .page-btn.active {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: #fff;
+
+    .detail-badges {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .detail-info { display: flex; flex-direction: column; gap: 14px; }
+
+    .detail-brand {
+      font-size: 11px;
       font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--orange-dark);
     }
-    .page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .detail-name {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--text);
+      line-height: 1.2;
+    }
+    .detail-category {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .detail-stats {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .stat-box {
+      background: var(--surface-2);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      text-align: center;
+      min-width: 80px;
+    }
+    .stat-value {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--text);
+      line-height: 1;
+    }
+    .stat-value.positive { color: var(--positive); }
+    .stat-value.negative { color: var(--negative); }
+    .stat-value.orange   { color: var(--orange-dark); }
+    .stat-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .detail-price {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .detail-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
     /* ══════════════════════════════════════════
-       COMPARE BAR
+       SUBREDDIT HEATMAP
     ══════════════════════════════════════════ */
-    .compare-bar {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      z-index: 200;
+    .heatmap-section {
       background: var(--surface);
-      border-top: 1px solid var(--border);
-      padding: 12px 20px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      margin-bottom: 24px;
+    }
+
+    .heatmap-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 14px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      box-shadow: 0 -4px 24px rgba(0,0,0,0.3);
-      transform: translateY(100%);
-      transition: transform 0.25s ease;
+      gap: 6px;
     }
-    .compare-bar.visible { transform: translateY(0); }
 
-    .compare-bar-items {
+    .heatmap-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .heatmap-row {
       display: flex;
       align-items: center;
       gap: 10px;
-      flex: 1;
-      overflow: hidden;
     }
-    .compare-bar-label {
-      font-size: 12px;
+
+    .heatmap-label {
+      font-size: 11px;
       font-weight: 600;
-      color: var(--text-muted);
-      white-space: nowrap;
-    }
-    .compare-item-chip {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 5px 10px;
-      font-size: 12px;
-      color: var(--text);
-      white-space: nowrap;
-      max-width: 180px;
+      color: var(--orange-dark);
+      width: 120px;
+      flex-shrink: 0;
       overflow: hidden;
       text-overflow: ellipsis;
-    }
-    .compare-item-remove {
-      background: none;
-      border: none;
-      color: var(--text-muted);
-      cursor: pointer;
-      font-size: 14px;
-      line-height: 1;
-      padding: 0;
-      flex-shrink: 0;
-    }
-    .compare-item-remove:hover { color: var(--negative); }
-
-    .compare-actions {
-      display: flex;
-      gap: 8px;
-      flex-shrink: 0;
-    }
-
-    /* ══════════════════════════════════════════
-       BUTTONS
-    ══════════════════════════════════════════ */
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      border-radius: var(--radius-sm);
-      font-size: 13px;
-      font-weight: 600;
-      padding: 8px 16px;
-      cursor: pointer;
-      transition: all var(--transition);
-      border: 1px solid transparent;
       white-space: nowrap;
     }
-    .btn-primary {
-      background: var(--accent);
-      color: #fff;
-      border-color: var(--accent);
-    }
-    .btn-primary:hover { background: var(--accent-2); border-color: var(--accent-2); }
-    .btn-secondary {
+
+    .heatmap-bar-track {
+      flex: 1;
+      height: 20px;
       background: var(--surface-2);
-      color: var(--text-dim);
-      border-color: var(--border);
+      border-radius: var(--radius-xs);
+      overflow: hidden;
+      display: flex;
     }
-    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
-    .btn-ghost {
-      background: transparent;
+
+    .heatmap-bar-pos {
+      background: linear-gradient(90deg, var(--positive), #2ecc71);
+      height: 100%;
+      transition: width 0.6s ease;
+    }
+
+    .heatmap-bar-neg {
+      background: linear-gradient(90deg, var(--negative), #e74c3c);
+      height: 100%;
+      transition: width 0.6s ease;
+    }
+
+    .heatmap-count {
+      font-size: 11px;
       color: var(--text-muted);
-      border-color: transparent;
+      width: 60px;
+      text-align: right;
+      flex-shrink: 0;
     }
-    .btn-ghost:hover { color: var(--text); background: var(--surface-2); }
-    .btn-sm { padding: 5px 12px; font-size: 12px; }
-    .btn-danger {
-      background: rgba(239,68,68,0.1);
-      color: var(--negative);
-      border-color: rgba(239,68,68,0.3);
-    }
-    .btn-danger:hover { background: rgba(239,68,68,0.2); }
 
     /* ══════════════════════════════════════════
-       MODAL OVERLAY
+       PROS / CONS
+    ══════════════════════════════════════════ */
+    .pros-cons-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 500px) {
+      .pros-cons-grid { grid-template-columns: 1fr; }
+    }
+
+    .pros-box, .cons-box {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+    }
+    .pros-box { border-left: 4px solid var(--positive); }
+    .cons-box { border-left: 4px solid var(--negative); }
+
+    .pc-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
+    }
+    .pros-box .pc-title { color: var(--positive); }
+    .cons-box .pc-title { color: var(--negative); }
+
+    .pc-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0;
+      font-size: 13px;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+    }
+    .pc-item:last-child { border-bottom: none; }
+    .pc-icon { font-size: 12px; flex-shrink: 0; }
+    .pc-count {
+      margin-left: auto;
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    /* ══════════════════════════════════════════
+       REDDIT REVIEWS
+    ══════════════════════════════════════════ */
+    .reviews-section {
+      margin-bottom: 24px;
+    }
+
+    .reviews-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .review-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      margin-bottom: 12px;
+      transition: border-color var(--transition);
+    }
+    .review-card:hover { border-color: var(--orange); }
+
+    .review-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .review-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .review-sub {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--orange-dark);
+    }
+
+    .review-date {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .sentiment-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .sentiment-badge.positive { background: rgba(39,174,96,0.12); color: var(--positive); }
+    .sentiment-badge.negative { background: rgba(231,76,60,0.12); color: var(--negative); }
+    .sentiment-badge.neutral  { background: rgba(149,165,166,0.12); color: var(--neutral); }
+
+    /* Reddit preview card */
+    .reddit-preview {
+      background: var(--surface-2);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      margin-top: 10px;
+    }
+
+    .reddit-preview-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+
+    .reddit-icon {
+      font-size: 14px;
+    }
+
+    .reddit-preview-sub {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--orange-dark);
+    }
+
+    .reddit-preview-text {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    .review-text-short {
+      display: block;
+    }
+
+    .review-text-full {
+      display: none;
+    }
+
+    .review-text-full.expanded {
+      display: block;
+    }
+
+    .show-more-btn {
+      background: none;
+      border: none;
+      color: var(--orange-dark);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 4px 0;
+      margin-top: 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .show-more-btn:hover { text-decoration: underline; }
+
+    /* ══════════════════════════════════════════
+       SENTIMENT TREND CHART
+    ══════════════════════════════════════════ */
+    .trend-section {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      margin-bottom: 24px;
+    }
+
+    .trend-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 14px;
+    }
+
+    .trend-chart-wrap {
+      position: relative;
+      height: 180px;
+    }
+
+    /* ══════════════════════════════════════════
+       RELATED PRODUCTS
+    ══════════════════════════════════════════ */
+    .related-section {
+      margin-bottom: 24px;
+    }
+
+    .related-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 14px;
+    }
+
+    .related-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .related-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      cursor: pointer;
+      transition: all var(--transition);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .related-card:hover {
+      border-color: var(--orange);
+      box-shadow: var(--shadow);
+      transform: translateY(-2px);
+    }
+
+    .related-card-image {
+      background: var(--surface-2);
+      border-radius: var(--radius-xs);
+      height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .related-card-image img {
+      max-height: 70px;
+      max-width: 90%;
+      object-fit: contain;
+    }
+
+    .related-card-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.3;
+    }
+
+    .related-card-score {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--positive);
+    }
+
+    /* ══════════════════════════════════════════
+       COMPARISON MODAL
     ══════════════════════════════════════════ */
     .modal-overlay {
       position: fixed;
       inset: 0;
-      z-index: 300;
-      background: rgba(0,0,0,0.7);
+      z-index: 400;
+      background: rgba(0,0,0,0.65);
       backdrop-filter: blur(4px);
       -webkit-backdrop-filter: blur(4px);
       display: flex;
@@ -612,11 +1083,11 @@
 
     .modal {
       background: var(--surface);
-      border: 1px solid var(--border);
+      border: 1.5px solid var(--border);
       border-radius: var(--radius);
       box-shadow: var(--shadow-lg);
       width: 100%;
-      max-width: 900px;
+      max-width: 960px;
       margin: auto;
       transform: translateY(16px);
       transition: transform 0.2s ease;
@@ -628,17 +1099,21 @@
       align-items: center;
       justify-content: space-between;
       padding: 18px 22px;
-      border-bottom: 1px solid var(--border);
+      border-bottom: 2px solid var(--border);
       gap: 12px;
+      background: linear-gradient(135deg, var(--orange-light) 0%, var(--surface) 100%);
+      border-radius: var(--radius) var(--radius) 0 0;
     }
+
     .modal-title {
       font-size: 16px;
       font-weight: 700;
       color: var(--text);
     }
+
     .modal-close {
       background: var(--surface-2);
-      border: 1px solid var(--border);
+      border: 1.5px solid var(--border);
       border-radius: var(--radius-xs);
       color: var(--text-muted);
       cursor: pointer;
@@ -659,333 +1134,61 @@
       max-height: calc(90vh - 80px);
     }
 
-    /* ══════════════════════════════════════════
-       PRODUCT DETAIL VIEW
-    ══════════════════════════════════════════ */
-    .detail-hero {
-      display: grid;
-      grid-template-columns: 200px 1fr;
-      gap: 24px;
-      margin-bottom: 28px;
-    }
-    @media (max-width: 600px) {
-      .detail-hero { grid-template-columns: 1fr; }
+    /* Comparison table */
+    .compare-table-wrap {
+      overflow-x: auto;
     }
 
-    .detail-image-wrap {
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .compare-table th {
       background: var(--surface-2);
-      border-radius: var(--radius);
-      height: 200px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-    }
-    .detail-image-wrap img {
-      max-height: 180px;
-      max-width: 90%;
-      object-fit: contain;
-    }
-
-    .detail-info { display: flex; flex-direction: column; gap: 12px; }
-    .detail-brand {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: var(--accent);
-    }
-    .detail-name {
-      font-size: 22px;
+      border: 1.5px solid var(--border);
+      padding: 12px 14px;
+      text-align: center;
       font-weight: 700;
       color: var(--text);
-      line-height: 1.25;
-    }
-    .detail-category {
-      font-size: 12px;
-      color: var(--text-muted);
     }
 
-    .detail-stats {
-      display: flex;
-      gap: 16px;
-      flex-wrap: wrap;
+    .compare-table th.winner-col {
+      background: var(--orange-light);
+      border-color: var(--orange);
     }
-    .stat-box {
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
+
+    .compare-table td {
+      border: 1.5px solid var(--border);
       padding: 10px 14px;
       text-align: center;
-      min-width: 80px;
-    }
-    .stat-value {
-      font-size: 20px;
-      font-weight: 800;
       color: var(--text);
-      line-height: 1;
-    }
-    .stat-value.positive { color: var(--positive); }
-    .stat-value.negative { color: var(--negative); }
-    .stat-label {
-      font-size: 10px;
-      color: var(--text-muted);
-      margin-top: 4px;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
+      vertical-align: top;
     }
 
-    .detail-price {
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--text);
-    }
-
-    .detail-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-
-    /* Tabs */
-    .tabs {
-      display: flex;
-      gap: 2px;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 22px;
-    }
-    .tab-btn {
-      background: none;
-      border: none;
-      border-bottom: 2px solid transparent;
-      color: var(--text-muted);
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 500;
-      padding: 10px 16px;
-      margin-bottom: -1px;
-      transition: all var(--transition);
-    }
-    .tab-btn:hover { color: var(--text); }
-    .tab-btn.active {
-      color: var(--accent);
-      border-bottom-color: var(--accent);
+    .compare-table td.row-label {
+      text-align: left;
       font-weight: 600;
-    }
-    .tab-panel { display: none; }
-    .tab-panel.active { display: block; }
-
-    /* Pros / Cons */
-    .pros-cons-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      margin-bottom: 20px;
-    }
-    @media (max-width: 500px) {
-      .pros-cons-grid { grid-template-columns: 1fr; }
-    }
-
-    .pros-box, .cons-box {
-      background: var(--surface-2);
-      border-radius: var(--radius-sm);
-      padding: 14px;
-    }
-    .pros-box { border-left: 3px solid var(--positive); }
-    .cons-box { border-left: 3px solid var(--negative); }
-
-    .pc-title {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: 10px;
-    }
-    .pros-box .pc-title { color: var(--positive); }
-    .cons-box .pc-title { color: var(--negative); }
-
-    .pc-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 5px 0;
-      font-size: 13px;
-      color: var(--text);
-      border-bottom: 1px solid var(--border);
-    }
-    .pc-item:last-child { border-bottom: none; }
-    .pc-icon { font-size: 12px; flex-shrink: 0; }
-    .pc-count {
-      margin-left: auto;
-      font-size: 11px;
       color: var(--text-muted);
+      background: var(--surface-2);
       white-space: nowrap;
     }
 
-    /* Trend chart */
-    .trend-wrap {
-      background: var(--surface-2);
-      border-radius: var(--radius-sm);
-      padding: 16px;
-      margin-bottom: 20px;
-    }
-    .trend-title {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: 12px;
-    }
-    .trend-chart-wrap { position: relative; height: 160px; }
-
-    /* Reviews */
-    .review-list { display: flex; flex-direction: column; gap: 12px; }
-    .review-card {
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 14px;
-    }
-    .review-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 8px;
-      gap: 8px;
-    }
-    .review-meta {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .review-sub {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--accent);
-    }
-    .review-date {
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-    .sentiment-badge {
-      font-size: 10px;
-      font-weight: 700;
-      padding: 2px 8px;
-      border-radius: 999px;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
-    .sentiment-badge.positive { background: rgba(34,197,94,0.12); color: var(--positive); }
-    .sentiment-badge.negative { background: rgba(239,68,68,0.12); color: var(--negative); }
-    .sentiment-badge.neutral  { background: rgba(148,163,184,0.12); color: var(--neutral); }
-
-    .review-text {
-      font-size: 13px;
-      color: var(--text-dim);
-      line-height: 1.6;
+    .compare-table td.winner-col {
+      background: rgba(243,156,18,0.05);
     }
 
-    /* ══════════════════════════════════════════
-       COMPARE MODAL
-    ══════════════════════════════════════════ */
-    .compare-grid {
-      display: grid;
-      gap: 16px;
-    }
-    .compare-grid.cols-2 { grid-template-columns: 1fr 1fr; }
-    .compare-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
-    @media (max-width: 640px) {
-      .compare-grid.cols-2,
-      .compare-grid.cols-3 { grid-template-columns: 1fr; }
-    }
-
-    .compare-col {
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .compare-col.winner { border-color: var(--accent); }
-
-    .compare-col-image {
-      background: var(--surface-3);
-      border-radius: var(--radius-xs);
-      height: 120px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-    }
-    .compare-col-image img {
-      max-height: 100px;
-      max-width: 90%;
-      object-fit: contain;
-    }
-
-    .compare-col-brand {
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: var(--accent);
-    }
-    .compare-col-name {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text);
-      line-height: 1.3;
-    }
-
-    .compare-score-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .compare-score-bar-wrap {
-      flex: 1;
-      height: 6px;
-      background: var(--surface-3);
-      border-radius: 999px;
-      overflow: hidden;
-    }
-    .compare-score-bar {
-      height: 100%;
-      border-radius: 999px;
-      background: var(--accent);
-      transition: width 0.6s ease;
-    }
-    .compare-score-val {
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--text);
-      white-space: nowrap;
-    }
-
-    .compare-pc-section { display: flex; flex-direction: column; gap: 4px; }
-    .compare-pc-title {
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: 4px;
-    }
-    .compare-pc-title.pos { color: var(--positive); }
-    .compare-pc-title.neg { color: var(--negative); }
-    .compare-pc-item {
-      font-size: 12px;
-      color: var(--text-dim);
-      padding: 3px 0;
-      border-bottom: 1px solid var(--border);
-    }
-    .compare-pc-item:last-child { border-bottom: none; }
+    .compare-table tr:hover td { background: var(--surface-2); }
+    .compare-table tr:hover td.winner-col { background: var(--orange-light); }
 
     .winner-badge {
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      background: var(--accent-glow);
-      border: 1px solid var(--accent);
-      color: var(--accent);
+      background: var(--orange-glow);
+      border: 1.5px solid var(--orange);
+      color: var(--orange-dark);
       font-size: 10px;
       font-weight: 700;
       padding: 2px 8px;
@@ -994,47 +1197,19 @@
       letter-spacing: 0.06em;
     }
 
-    /* ══════════════════════════════════════════
-       SEARCH RESULTS DROPDOWN
-    ══════════════════════════════════════════ */
-    .search-results-dropdown {
-      position: absolute;
-      top: calc(100% + 4px);
-      left: 0;
-      right: 0;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      box-shadow: var(--shadow-lg);
-      z-index: 500;
+    .compare-score-bar-wrap {
+      width: 100%;
+      height: 6px;
+      background: var(--surface-3);
+      border-radius: 999px;
       overflow: hidden;
-      max-height: 280px;
-      overflow-y: auto;
+      margin-top: 4px;
     }
-    .search-result-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 14px;
-      cursor: pointer;
-      transition: background var(--transition);
-      border-bottom: 1px solid var(--border);
-    }
-    .search-result-item:last-child { border-bottom: none; }
-    .search-result-item:hover { background: var(--surface-2); }
-    .search-result-name {
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--text);
-    }
-    .search-result-brand {
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-    .search-result-score {
-      margin-left: auto;
-      font-size: 12px;
-      font-weight: 700;
+    .compare-score-bar {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--orange), var(--orange-dark));
+      transition: width 0.6s ease;
     }
 
     /* ══════════════════════════════════════════
@@ -1049,18 +1224,19 @@
       gap: 16px;
       color: var(--text-muted);
     }
+
     .spinner {
       width: 38px;
       height: 38px;
       border: 3px solid var(--border);
-      border-top-color: var(--accent);
+      border-top-color: var(--orange);
       border-radius: 50%;
       animation: spin 0.75s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+
     .state-msg { font-size: 14px; text-align: center; max-width: 300px; line-height: 1.5; }
 
-    /* Empty state */
     .empty-state {
       text-align: center;
       padding: 48px 24px;
@@ -1075,14 +1251,16 @@
     ══════════════════════════════════════════ */
     .widget-footer {
       text-align: center;
-      padding: 16px 20px;
+      padding: 16px 24px;
       font-size: 12px;
       color: var(--text-muted);
-      border-top: 1px solid var(--border);
+      border-top: 1.5px solid var(--border);
+      background: var(--surface);
     }
     .widget-footer a {
-      color: var(--accent);
+      color: var(--orange-dark);
       text-decoration: none;
+      font-weight: 600;
     }
     .widget-footer a:hover { text-decoration: underline; }
 
@@ -1104,14 +1282,16 @@
     .blocked p  { font-size: 13px; max-width: 320px; line-height: 1.6; }
 
     /* ══════════════════════════════════════════
-       RESPONSIVE TWEAKS
+       RESPONSIVE
     ══════════════════════════════════════════ */
     @media (max-width: 640px) {
-      .top-bar { padding: 0 12px; }
-      .top-bar-title { display: none; }
-      .filter-bar { padding: 8px 12px; }
-      .main-content { padding: 16px 12px 80px; }
+      .widget-header { padding: 14px 16px; }
+      .header-title { font-size: 16px; }
+      .filter-section { padding: 10px 16px; }
+      .personalised-section { padding: 12px 16px; }
+      .main-content { padding: 16px 16px 80px; }
       .product-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+      .detail-body { padding: 20px 16px 80px; }
     }
     @media (max-width: 420px) {
       .product-grid { grid-template-columns: 1fr; }
@@ -1124,18 +1304,146 @@
     .text-positive { color: var(--positive); }
     .text-negative { color: var(--negative); }
     .text-muted    { color: var(--text-muted); }
-    .mt-4  { margin-top: 4px; }
     .mt-8  { margin-top: 8px; }
     .mt-16 { margin-top: 16px; }
-    .flex  { display: flex; }
-    .items-center { align-items: center; }
-    .gap-8 { gap: 8px; }
-    .w-full { width: 100%; }
   </style>
 </head>
 <body>
 
-<div id="app"></div>
+<!-- ════════════════════════════════════════════
+     HEADER
+════════════════════════════════════════════ -->
+<header class="widget-header">
+  <div class="header-left">
+    <div class="header-title">📢 Real Reddit Reviews 🔥</div>
+    <div class="header-subtitle">Aggregated from Reddit · Updated daily · Powered by AirLucent</div>
+  </div>
+  <div class="header-right">
+    <button class="dark-toggle" id="dark-toggle">🌙 Dark</button>
+  </div>
+</header>
+
+<!-- ════════════════════════════════════════════
+     FILTER SECTION
+════════════════════════════════════════════ -->
+<div class="filter-section" id="filter-section">
+  <div class="filter-group">
+    <span class="filter-label">Category</span>
+    <select class="filter-select" id="filter-category">
+      <option value="">All Categories</option>
+    </select>
+  </div>
+  <div class="filter-divider"></div>
+  <div class="filter-group">
+    <span class="filter-label">Use Case</span>
+    <select class="filter-select" id="filter-usecase">
+      <option value="">All Use Cases</option>
+      <option value="smoke">Smoke &amp; Odor</option>
+      <option value="pets">Pets</option>
+      <option value="allergies">Allergies</option>
+      <option value="quiet">Quiet / Sleep</option>
+      <option value="large-room">Large Room</option>
+      <option value="small-room">Small Room</option>
+      <option value="energy-efficiency">Energy Efficient</option>
+      <option value="smart-home">Smart Home</option>
+    </select>
+  </div>
+  <div class="filter-divider"></div>
+  <div class="filter-group">
+    <span class="filter-label">Subreddit</span>
+    <select class="filter-select" id="filter-subreddit">
+      <option value="">All Subreddits</option>
+    </select>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     PERSONALISED SECTION
+════════════════════════════════════════════ -->
+<div class="personalised-section" id="personalised-section">
+  <div class="personalised-header">
+    <span style="font-size:18px">✨</span>
+    <div>
+      <div class="personalised-title">Best for you?</div>
+      <div class="personalised-subtitle">Pick your situation for personalised recommendations</div>
+    </div>
+  </div>
+  <div class="usecase-buttons" id="usecase-buttons">
+    <button class="usecase-btn active" data-usecase="">🏠 All Products</button>
+    <button class="usecase-btn" data-usecase="smoke">🚬 Smoke &amp; Odor</button>
+    <button class="usecase-btn" data-usecase="pets">🐾 Pets</button>
+    <button class="usecase-btn" data-usecase="allergies">🌿 Allergies</button>
+    <button class="usecase-btn" data-usecase="quiet">😴 Quiet / Sleep</button>
+    <button class="usecase-btn" data-usecase="large-room">🏢 Large Room</button>
+    <button class="usecase-btn" data-usecase="small-room">🛏 Small Room</button>
+    <button class="usecase-btn" data-usecase="energy-efficiency">⚡ Energy Efficient</button>
+    <button class="usecase-btn" data-usecase="smart-home">📱 Smart Home</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     COMPARE BAR
+════════════════════════════════════════════ -->
+<div class="compare-bar" id="compare-bar">
+  <div class="compare-bar-items">
+    <span class="compare-bar-label">⚖️ Compare:</span>
+    <div id="compare-chips"></div>
+  </div>
+  <div class="compare-actions">
+    <button class="btn btn-secondary btn-sm" id="compare-clear-btn">Clear</button>
+    <button class="btn btn-primary btn-sm" id="compare-run-btn">Compare Now</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     MAIN CONTENT (product grid)
+════════════════════════════════════════════ -->
+<main class="main-content" id="main-content">
+  <div class="state-container">
+    <div class="spinner"></div>
+    <span class="state-msg">Loading Reddit reviews…</span>
+  </div>
+</main>
+
+<!-- ════════════════════════════════════════════
+     FOOTER
+════════════════════════════════════════════ -->
+<footer class="widget-footer">
+  Powered by <a href="https://airlucent.com" target="_blank" rel="noopener noreferrer">AirLucent</a>
+  &nbsp;·&nbsp; Data sourced from Reddit &nbsp;·&nbsp; Updated daily
+</footer>
+
+<!-- ════════════════════════════════════════════
+     DETAIL VIEW (full-page)
+════════════════════════════════════════════ -->
+<div class="detail-view" id="detail-view">
+  <div class="detail-topbar">
+    <button class="detail-back" id="detail-back">← Back</button>
+    <span class="detail-topbar-title" id="detail-topbar-title">Product Detail</span>
+    <button class="btn btn-secondary btn-sm" id="detail-add-compare">+ Compare</button>
+  </div>
+  <div class="detail-body" id="detail-body">
+    <div class="state-container">
+      <div class="spinner"></div>
+      <span class="state-msg">Loading product details…</span>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     COMPARISON MODAL
+════════════════════════════════════════════ -->
+<div class="modal-overlay" id="compare-modal" role="dialog" aria-modal="true" aria-label="Product comparison">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">⚖️ Product Comparison</span>
+      <button class="modal-close" id="compare-modal-close" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body" id="compare-modal-body">
+      <div class="state-container"><div class="spinner"></div></div>
+    </div>
+  </div>
+</div>
 
 <script>
 (function () {
@@ -1144,28 +1452,18 @@
   /* ════════════════════════════════════════════
      CONSTANTS
   ════════════════════════════════════════════ */
-  const API_BASE       = window.location.origin;
-  const PAGE_SIZE      = 12;
-  const MAX_COMPARE    = 3;
+  const API_BASE        = window.location.origin;
+  const PAGE_SIZE       = 12;
+  const MAX_COMPARE     = 3;
   const ALLOWED_ORIGINS = ["https://airlucent.com", "https://www.airlucent.com"];
-
-  const USECASE_OPTIONS = [
-    { value: "",                 label: "All Use Cases" },
-    { value: "smoke",            label: "Smoke & Odor" },
-    { value: "pets",             label: "Pets" },
-    { value: "allergies",        label: "Allergies" },
-    { value: "quiet",            label: "Quiet / Sleep" },
-    { value: "large-room",       label: "Large Room" },
-    { value: "small-room",       label: "Small Room" },
-    { value: "energy-efficiency",label: "Energy Efficient" },
-    { value: "smart-home",       label: "Smart Home" },
-  ];
+  const TRUSTED_SUBS    = ["airpurifiers", "homeimprovement", "smarthome", "malelivingspace", "femalelivingspace", "asthma", "allergies"];
+  const REVIEW_TRUNCATE = 200; // chars before "show more"
 
   /* ════════════════════════════════════════════
      ANTI-EMBEDDING PROTECTION
   ════════════════════════════════════════════ */
   function isEmbeddingAllowed() {
-    if (!document.referrer) return true; // direct access / dev
+    if (!document.referrer) return true;
     try {
       const ref = new URL(document.referrer);
       return ALLOWED_ORIGINS.some(o => new URL(o).hostname === ref.hostname);
@@ -1176,21 +1474,20 @@
      STATE
   ════════════════════════════════════════════ */
   const state = {
-    rankings:       [],
-    categories:     [],
-    subreddits:     [],
-    compareList:    [],   // array of ranking objects
-    currentPage:    1,
-    totalItems:     0,
+    rankings:        [],
+    allRankings:     [], // full list for related products
+    categories:      [],
+    subreddits:      [],
+    compareList:     [],
+    currentPage:     1,
+    totalItems:      0,
     filters: {
       category:  "",
       subreddit: "",
       usecase:   "",
     },
-    searchQuery:    "",
-    searchResults:  [],
-    searchTimer:    null,
-    activeCharts:   {},   // chart instances keyed by canvas id
+    activeCharts:    {},
+    currentDetail:   null, // current ranking item in detail view
   };
 
   /* ════════════════════════════════════════════
@@ -1242,6 +1539,20 @@
     } catch (_) { return str; }
   }
 
+  function isTrending(reviews) {
+    // Trending: >2 reviews in the last 7 days
+    if (!reviews || !reviews.length) return false;
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const recent = reviews.filter(r => r.created_at && new Date(r.created_at).getTime() > cutoff);
+    return recent.length > 2;
+  }
+
+  function isVerified(reviews) {
+    // Verified: has reviews from trusted subreddits
+    if (!reviews || !reviews.length) return false;
+    return reviews.some(r => r.subreddit && TRUSTED_SUBS.includes(r.subreddit.toLowerCase()));
+  }
+
   function destroyChart(id) {
     if (state.activeCharts[id]) {
       state.activeCharts[id].destroy();
@@ -1251,6 +1562,23 @@
 
   function destroyAllCharts() {
     Object.keys(state.activeCharts).forEach(destroyChart);
+  }
+
+  /* ════════════════════════════════════════════
+     DARK MODE
+  ════════════════════════════════════════════ */
+  function initDarkMode() {
+    const btn = document.getElementById("dark-toggle");
+    const saved = localStorage.getItem("widget-dark-mode");
+    if (saved === "true") {
+      document.body.classList.add("dark-mode");
+      btn.textContent = "☀️ Light";
+    }
+    btn.addEventListener("click", () => {
+      const isDark = document.body.classList.toggle("dark-mode");
+      btn.textContent = isDark ? "☀️ Light" : "🌙 Dark";
+      localStorage.setItem("widget-dark-mode", isDark);
+    });
   }
 
   /* ════════════════════════════════════════════
@@ -1265,10 +1593,8 @@
   async function fetchRankings() {
     const { filters, currentPage } = state;
     const offset = (currentPage - 1) * PAGE_SIZE;
-    let path;
 
     if (filters.usecase) {
-      // Use-case endpoint returns different shape
       const data = await apiFetch(`/usecase/${encodeURIComponent(filters.usecase)}?limit=${PAGE_SIZE}`);
       const recs = (data.recommendations || []).map((r, i) => ({
         rank: i + 1,
@@ -1284,23 +1610,26 @@
       return;
     }
 
-    const params = new URLSearchParams({
-      limit:  PAGE_SIZE,
-      offset: offset,
-    });
+    const params = new URLSearchParams({ limit: PAGE_SIZE, offset });
     if (filters.category)  params.set("category",  filters.category);
     if (filters.subreddit) params.set("subreddit", filters.subreddit);
 
     const data = await apiFetch(`/rankings?${params}`);
-    state.rankings   = data.rankings || [];
-    // API doesn't return total count — estimate from returned length
+    state.rankings = data.rankings || [];
     if (state.rankings.length < PAGE_SIZE && currentPage === 1) {
       state.totalItems = state.rankings.length;
     } else if (state.rankings.length < PAGE_SIZE) {
       state.totalItems = (currentPage - 1) * PAGE_SIZE + state.rankings.length;
     } else {
-      state.totalItems = currentPage * PAGE_SIZE + 1; // at least one more page
+      state.totalItems = currentPage * PAGE_SIZE + 1;
     }
+  }
+
+  async function fetchAllRankings() {
+    try {
+      const data = await apiFetch("/rankings?limit=50");
+      state.allRankings = data.rankings || [];
+    } catch (_) { state.allRankings = []; }
   }
 
   async function fetchCategories() {
@@ -1311,13 +1640,10 @@
   }
 
   async function fetchSubreddits() {
-    // Derive subreddits from a small rankings sample
     try {
       const data = await apiFetch("/rankings?limit=50");
       const subs = new Set();
-      (data.rankings || []).forEach(r => {
-        if (r.subreddit) subs.add(r.subreddit);
-      });
+      (data.rankings || []).forEach(r => { if (r.subreddit) subs.add(r.subreddit); });
       state.subreddits = [...subs].sort();
     } catch (_) { state.subreddits = []; }
   }
@@ -1327,137 +1653,16 @@
   }
 
   async function fetchTrend(productId) {
-    try {
-      return apiFetch(`/trend/${encodeURIComponent(productId)}`);
-    } catch (_) { return { history: [] }; }
+    try { return apiFetch(`/trend/${encodeURIComponent(productId)}`); }
+    catch (_) { return { history: [] }; }
   }
 
   async function fetchCompare(ids) {
     return apiFetch(`/compare?ids=${ids.map(encodeURIComponent).join(",")}`);
   }
 
-  async function fetchSearch(q) {
-    if (q.length < 2) return [];
-    try {
-      const data = await apiFetch(`/search?q=${encodeURIComponent(q)}`);
-      return data.results || [];
-    } catch (_) { return []; }
-  }
-
   /* ════════════════════════════════════════════
-     RENDER — SHELL
-  ════════════════════════════════════════════ */
-  const appEl = document.getElementById("app");
-
-  function buildShell() {
-    appEl.innerHTML = `
-      <!-- Top bar -->
-      <header class="top-bar">
-        <div class="top-bar-left">
-          <div class="logo-badge">
-            <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor"><circle cx="4" cy="4" r="4"/></svg>
-            Live
-          </div>
-          <span class="top-bar-title">Reddit Product Rankings</span>
-        </div>
-
-        <div class="search-wrap" id="search-wrap">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
-          <input type="text" id="search-input" placeholder="Search products…" autocomplete="off" />
-          <div id="search-dropdown" class="search-results-dropdown hidden"></div>
-        </div>
-
-        <div class="top-bar-right">
-          <button class="theme-btn" id="theme-btn" title="Toggle dark/light mode" aria-label="Toggle theme">
-            <svg id="theme-icon-dark" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-            </svg>
-            <svg id="theme-icon-light" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hidden">
-              <circle cx="12" cy="12" r="5"/>
-              <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
-              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-              <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
-              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-            </svg>
-          </button>
-        </div>
-      </header>
-
-      <!-- Filter bar -->
-      <div class="filter-bar" id="filter-bar">
-        <span class="filter-label">Filter</span>
-
-        <select class="filter-select" id="filter-category">
-          <option value="">All Categories</option>
-        </select>
-
-        <select class="filter-select" id="filter-subreddit">
-          <option value="">All Subreddits</option>
-        </select>
-
-        <div class="filter-divider"></div>
-
-        <span class="filter-label">Use Case</span>
-        <div class="filter-chips" id="usecase-chips"></div>
-      </div>
-
-      <!-- Main -->
-      <main class="main-content" id="main-content">
-        <div class="state-container">
-          <div class="spinner"></div>
-          <span class="state-msg">Loading rankings…</span>
-        </div>
-      </main>
-
-      <!-- Footer -->
-      <footer class="widget-footer">
-        Powered by <a href="https://airlucent.com" target="_blank" rel="noopener noreferrer">AirLucent</a>
-        &nbsp;·&nbsp; Data sourced from Reddit &nbsp;·&nbsp; Updated daily
-      </footer>
-
-      <!-- Compare bar -->
-      <div class="compare-bar" id="compare-bar">
-        <div class="compare-bar-items">
-          <span class="compare-bar-label">Compare:</span>
-          <div id="compare-chips"></div>
-        </div>
-        <div class="compare-actions">
-          <button class="btn btn-secondary btn-sm" id="compare-clear-btn">Clear</button>
-          <button class="btn btn-primary btn-sm" id="compare-run-btn">Compare Now</button>
-        </div>
-      </div>
-
-      <!-- Product detail modal -->
-      <div class="modal-overlay" id="detail-modal" role="dialog" aria-modal="true" aria-label="Product detail">
-        <div class="modal" id="detail-modal-inner">
-          <div class="modal-header">
-            <span class="modal-title" id="detail-modal-title">Product Detail</span>
-            <button class="modal-close" id="detail-modal-close" aria-label="Close">✕</button>
-          </div>
-          <div class="modal-body" id="detail-modal-body">
-            <div class="state-container"><div class="spinner"></div></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Compare modal -->
-      <div class="modal-overlay" id="compare-modal" role="dialog" aria-modal="true" aria-label="Product comparison">
-        <div class="modal" style="max-width:1000px">
-          <div class="modal-header">
-            <span class="modal-title">Product Comparison</span>
-            <button class="modal-close" id="compare-modal-close" aria-label="Close">✕</button>
-          </div>
-          <div class="modal-body" id="compare-modal-body">
-            <div class="state-container"><div class="spinner"></div></div>
-          </div>
-        </div>
-      </div>`;
-  }
-
-  /* ════════════════════════════════════════════
-     RENDER — FILTER OPTIONS
+     POPULATE FILTERS
   ════════════════════════════════════════════ */
   function populateFilters() {
     const catSel = document.getElementById("filter-category");
@@ -1475,27 +1680,49 @@
       opt.textContent = "r/" + sub;
       subSel.appendChild(opt);
     });
+  }
 
-    const chipsEl = document.getElementById("usecase-chips");
-    USECASE_OPTIONS.forEach(uc => {
-      const chip = document.createElement("button");
-      chip.className = "chip" + (state.filters.usecase === uc.value ? " active" : "");
-      chip.dataset.value = uc.value;
-      chip.textContent = uc.label;
-      chip.addEventListener("click", () => {
-        state.filters.usecase = uc.value;
+  /* ════════════════════════════════════════════
+     BIND FILTER EVENTS
+  ════════════════════════════════════════════ */
+  function bindFilterEvents() {
+    document.getElementById("filter-category").addEventListener("change", e => {
+      state.filters.category = e.target.value;
+      state.currentPage = 1;
+      loadAndRenderRankings();
+    });
+
+    document.getElementById("filter-usecase").addEventListener("change", e => {
+      state.filters.usecase = e.target.value;
+      state.currentPage = 1;
+      // Sync quick-select buttons
+      document.querySelectorAll(".usecase-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.usecase === e.target.value);
+      });
+      loadAndRenderRankings();
+    });
+
+    document.getElementById("filter-subreddit").addEventListener("change", e => {
+      state.filters.subreddit = e.target.value;
+      state.currentPage = 1;
+      loadAndRenderRankings();
+    });
+
+    // Quick-select usecase buttons
+    document.querySelectorAll(".usecase-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const val = btn.dataset.usecase;
+        state.filters.usecase = val;
         state.currentPage = 1;
-        document.querySelectorAll(".filter-chips .chip").forEach(c => {
-          c.classList.toggle("active", c.dataset.value === uc.value);
-        });
+        document.querySelectorAll(".usecase-btn").forEach(b => b.classList.toggle("active", b.dataset.usecase === val));
+        document.getElementById("filter-usecase").value = val;
         loadAndRenderRankings();
       });
-      chipsEl.appendChild(chip);
     });
   }
 
   /* ════════════════════════════════════════════
-     RENDER — PRODUCT GRID
+     RENDER PRODUCT GRID
   ════════════════════════════════════════════ */
   function renderGrid() {
     const main = document.getElementById("main-content");
@@ -1504,19 +1731,20 @@
         <div class="empty-state">
           <div class="empty-icon">🔍</div>
           <div class="empty-title">No products found</div>
-          <div class="empty-sub">Try adjusting your filters or search query.</div>
+          <div class="empty-sub">Try adjusting your filters or use case selection.</div>
         </div>`;
       return;
     }
 
+    const usecaseLabel = state.filters.usecase
+      ? `Best for: ${document.querySelector(`.usecase-btn[data-usecase="${state.filters.usecase}"]`)?.textContent || state.filters.usecase}`
+      : "Top Recommended Products";
+
     const sectionHeader = `
       <div class="section-header">
         <div>
-          <div class="section-title">Top Recommended Products</div>
-          <div class="section-subtitle">Ranked by real Reddit sentiment — updated daily</div>
-        </div>
-        <div class="section-actions">
-          <span style="font-size:12px;color:var(--text-muted)">${state.rankings.length} products</span>
+          <div class="section-title">${esc(usecaseLabel)}</div>
+          <div class="section-subtitle">Ranked by real Reddit sentiment · ${state.rankings.length} products</div>
         </div>
       </div>`;
 
@@ -1525,20 +1753,26 @@
     grid.id = "product-grid";
 
     state.rankings.forEach((item, idx) => {
-      const product  = item.product || {};
-      const score    = item.sentiment_score || 0;
-      const posCount = item.positive_count  || 0;
-      const negCount = item.negative_count  || 0;
-      const neuCount = item.neutral_count   || 0;
-      const total    = posCount + negCount + neuCount;
-      const brand    = product.brand      || "Unknown Brand";
-      const model    = product.model_name || "Unknown Model";
-      const category = product.category   || "";
-      const imageUrl = product.image_url  || "";
-      const price    = product.amazon_price;
-      const rank     = item.rank || (idx + 1);
-      const pid      = item.product_id || product.id || "";
+      const product   = item.product || {};
+      const score     = item.sentiment_score || 0;
+      const posCount  = item.positive_count  || 0;
+      const negCount  = item.negative_count  || 0;
+      const neuCount  = item.neutral_count   || 0;
+      const total     = posCount + negCount + neuCount;
+      const brand     = product.brand      || "Unknown Brand";
+      const model     = product.model_name || "Unknown Model";
+      const category  = product.category   || "";
+      const imageUrl  = product.image_url  || "";
+      const price     = product.amazon_price;
+      const rank      = item.rank || (idx + 1);
+      const pid       = item.product_id || product.id || "";
       const isSelected = state.compareList.some(c => (c.product_id || c.product?.id) === pid);
+
+      // Badges (we'll refine with review data on detail open; use heuristics here)
+      const trendingBadge = posCount > 10 && score > 0.75
+        ? `<span class="badge badge-trending">🔥 Trending</span>` : "";
+      const verifiedBadge = score > 0.8 && total > 5
+        ? `<span class="badge badge-verified">✓ Verified</span>` : "";
 
       const card = document.createElement("div");
       card.className = "card";
@@ -1551,6 +1785,10 @@
                     onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
             : ""}
           <div class="card-img-placeholder" ${imageUrl ? 'style="display:none"' : ""}>📦</div>
+          <div class="card-badges">
+            ${trendingBadge}
+            ${verifiedBadge}
+          </div>
           <button class="card-compare-btn${isSelected ? " selected" : ""}"
                   data-pid="${esc(pid)}" title="Add to comparison">
             ${isSelected ? "✓ Added" : "+ Compare"}
@@ -1573,13 +1811,10 @@
           ${price ? `<div class="card-price">$${parseFloat(price).toFixed(2)}<span>on Amazon</span></div>` : ""}
         </div>`;
 
-      // Click card body → open detail
-      card.querySelector(".card-body").addEventListener("click", () => openDetailModal(pid, item));
+      card.querySelector(".card-body").addEventListener("click", () => openDetailView(pid, item));
       card.querySelector(".card-image-wrap").addEventListener("click", (e) => {
-        if (!e.target.classList.contains("card-compare-btn")) openDetailModal(pid, item);
+        if (!e.target.classList.contains("card-compare-btn")) openDetailView(pid, item);
       });
-
-      // Compare button
       card.querySelector(".card-compare-btn").addEventListener("click", (e) => {
         e.stopPropagation();
         toggleCompare(item, card.querySelector(".card-compare-btn"));
@@ -1588,52 +1823,30 @@
       grid.appendChild(card);
     });
 
-    const paginationHTML = renderPaginationHTML();
-
     main.innerHTML = sectionHeader;
     main.appendChild(grid);
-    if (paginationHTML) {
-      const pagDiv = document.createElement("div");
-      pagDiv.innerHTML = paginationHTML;
-      main.appendChild(pagDiv.firstElementChild);
-      bindPaginationEvents();
-    }
-  }
 
-  /* ════════════════════════════════════════════
-     PAGINATION
-  ════════════════════════════════════════════ */
-  function renderPaginationHTML() {
-    const totalPages = Math.ceil(state.totalItems / PAGE_SIZE);
-    if (totalPages <= 1) return "";
-
-    let html = `<div class="pagination">`;
-    html += `<button class="page-btn" data-page="${state.currentPage - 1}" ${state.currentPage === 1 ? "disabled" : ""}>← Prev</button>`;
-
-    for (let p = 1; p <= totalPages; p++) {
-      if (p === 1 || p === totalPages || Math.abs(p - state.currentPage) <= 1) {
-        html += `<button class="page-btn${p === state.currentPage ? " active" : ""}" data-page="${p}">${p}</button>`;
-      } else if (Math.abs(p - state.currentPage) === 2) {
-        html += `<span style="color:var(--text-muted);padding:0 4px">…</span>`;
-      }
-    }
-
-    html += `<button class="page-btn" data-page="${state.currentPage + 1}" ${state.currentPage === totalPages ? "disabled" : ""}>Next →</button>`;
-    html += `</div>`;
-    return html;
-  }
-
-  function bindPaginationEvents() {
-    document.querySelectorAll(".page-btn:not([disabled])").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const page = parseInt(btn.dataset.page, 10);
-        if (page !== state.currentPage) {
-          state.currentPage = page;
-          loadAndRenderRankings();
-          document.getElementById("main-content").scrollIntoView({ behavior: "smooth" });
+    // Load more button
+    const hasMore = state.rankings.length >= PAGE_SIZE;
+    if (hasMore) {
+      const loadMoreWrap = document.createElement("div");
+      loadMoreWrap.className = "load-more-wrap";
+      loadMoreWrap.innerHTML = `<button class="btn btn-secondary" id="load-more-btn">Load More Products</button>`;
+      main.appendChild(loadMoreWrap);
+      document.getElementById("load-more-btn").addEventListener("click", async () => {
+        state.currentPage++;
+        const btn = document.getElementById("load-more-btn");
+        btn.textContent = "Loading…";
+        btn.disabled = true;
+        try {
+          await fetchRankings();
+          renderGrid();
+        } catch (_) {
+          btn.textContent = "Load More Products";
+          btn.disabled = false;
         }
       });
-    });
+    }
   }
 
   /* ════════════════════════════════════════════
@@ -1645,23 +1858,21 @@
 
     if (idx >= 0) {
       state.compareList.splice(idx, 1);
-      btn.textContent = "+ Compare";
-      btn.classList.remove("selected");
+      if (btn) { btn.textContent = "+ Compare"; btn.classList.remove("selected"); }
     } else {
       if (state.compareList.length >= MAX_COMPARE) {
         alert(`You can compare up to ${MAX_COMPARE} products at a time.`);
         return;
       }
       state.compareList.push(item);
-      btn.textContent = "✓ Added";
-      btn.classList.add("selected");
+      if (btn) { btn.textContent = "✓ Added"; btn.classList.add("selected"); }
     }
     updateCompareBar();
   }
 
   function updateCompareBar() {
-    const bar      = document.getElementById("compare-bar");
-    const chipsEl  = document.getElementById("compare-chips");
+    const bar     = document.getElementById("compare-bar");
+    const chipsEl = document.getElementById("compare-chips");
 
     if (!state.compareList.length) {
       bar.classList.remove("visible");
@@ -1673,17 +1884,16 @@
       const pid   = item.product_id || item.product?.id || "";
       const model = item.product?.model_name || "Product";
       return `
-        <div class="compare-item-chip">
+        <div class="compare-chip">
           <span style="overflow:hidden;text-overflow:ellipsis">${esc(model)}</span>
-          <button class="compare-item-remove" data-pid="${esc(pid)}" title="Remove">✕</button>
+          <button class="compare-chip-remove" data-pid="${esc(pid)}" title="Remove">✕</button>
         </div>`;
     }).join("");
 
-    chipsEl.querySelectorAll(".compare-item-remove").forEach(btn => {
+    chipsEl.querySelectorAll(".compare-chip-remove").forEach(btn => {
       btn.addEventListener("click", () => {
         const pid = btn.dataset.pid;
         state.compareList = state.compareList.filter(c => (c.product_id || c.product?.id) !== pid);
-        // Update card button if visible
         const cardBtn = document.querySelector(`.card-compare-btn[data-pid="${CSS.escape(pid)}"]`);
         if (cardBtn) { cardBtn.textContent = "+ Compare"; cardBtn.classList.remove("selected"); }
         updateCompareBar();
@@ -1691,6 +1901,9 @@
     });
   }
 
+  /* ════════════════════════════════════════════
+     COMPARE MODAL
+  ════════════════════════════════════════════ */
   async function openCompareModal() {
     const ids = state.compareList.map(c => c.product_id || c.product?.id).filter(Boolean);
     if (ids.length < 2) { alert("Select at least 2 products to compare."); return; }
@@ -1698,7 +1911,8 @@
     const modal = document.getElementById("compare-modal");
     const body  = document.getElementById("compare-modal-body");
     body.innerHTML = `<div class="state-container"><div class="spinner"></div><span class="state-msg">Loading comparison…</span></div>`;
-    openModal(modal);
+    modal.classList.add("open");
+    document.body.style.overflow = "hidden";
 
     try {
       const data = await fetchCompare(ids);
@@ -1715,98 +1929,126 @@
       return;
     }
 
-    const maxScore = Math.max(...products.map(p => p.sentiment_score || 0));
-    const cols     = products.length;
+    const maxScore  = Math.max(...products.map(p => p.sentiment_score || 0));
+    const winnerIdx = products.findIndex(p => (p.sentiment_score || 0) === maxScore);
 
-    const colsHTML = products.map(p => {
-      const score     = p.sentiment_score || 0;
-      const isWinner  = score === maxScore && cols > 1;
-      const pct       = Math.round(score * 100);
-      const total     = (p.positive_count || 0) + (p.negative_count || 0);
+    // Build table
+    let thead = `<tr><th class="row-label" style="text-align:left">Attribute</th>`;
+    products.forEach((p, i) => {
+      const isWinner = i === winnerIdx && products.length > 1;
+      thead += `<th class="${isWinner ? "winner-col" : ""}">
+        ${isWinner ? `<div class="winner-badge">🏆 Top Pick</div><br>` : ""}
+        ${p.image_url ? `<img src="${esc(p.image_url)}" alt="${esc(p.model)}" style="max-height:60px;max-width:80px;object-fit:contain;display:block;margin:0 auto 6px">` : "📦"}
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--orange-dark)">${esc(p.brand || "")}</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text)">${esc(p.model || "")}</div>
+      </th>`;
+    });
+    thead += `</tr>`;
 
-      const prosHTML = (p.pros || []).map(pr =>
-        `<div class="compare-pc-item">✓ ${esc(pr.aspect)} <span style="color:var(--text-muted);font-size:10px">(${pr.count})</span></div>`
-      ).join("") || `<div class="compare-pc-item text-muted">No data</div>`;
+    const rows = [
+      {
+        label: "Sentiment Score",
+        render: (p, i) => {
+          const pct = Math.round((p.sentiment_score || 0) * 100);
+          return `<strong>${pct}%</strong>
+            <div class="compare-score-bar-wrap">
+              <div class="compare-score-bar" style="width:${pct}%"></div>
+            </div>`;
+        }
+      },
+      {
+        label: "Total Reviews",
+        render: (p) => ((p.positive_count || 0) + (p.negative_count || 0)).toLocaleString()
+      },
+      {
+        label: "Positive Reviews",
+        render: (p) => `<span class="text-positive">${(p.positive_count || 0).toLocaleString()}</span>`
+      },
+      {
+        label: "Negative Reviews",
+        render: (p) => `<span class="text-negative">${(p.negative_count || 0).toLocaleString()}</span>`
+      },
+      {
+        label: "Price",
+        render: (p) => p.price ? `$${parseFloat(p.price).toFixed(2)}` : "—"
+      },
+      {
+        label: "Top Pros",
+        render: (p) => (p.pros || []).slice(0, 3).map(pr => `✓ ${esc(pr.aspect)}`).join("<br>") || "—"
+      },
+      {
+        label: "Top Cons",
+        render: (p) => (p.cons || []).slice(0, 3).map(cn => `✗ ${esc(cn.aspect)}`).join("<br>") || "—"
+      },
+      {
+        label: "Discussed on",
+        render: (p) => (p.subreddits || []).filter(Boolean).map(s => `r/${esc(s)}`).join(", ") || "—"
+      },
+    ];
 
-      const consHTML = (p.cons || []).map(cn =>
-        `<div class="compare-pc-item">✗ ${esc(cn.aspect)} <span style="color:var(--text-muted);font-size:10px">(${cn.count})</span></div>`
-      ).join("") || `<div class="compare-pc-item text-muted">No data</div>`;
-
-      const subredditsHTML = (p.subreddits || []).filter(Boolean).map(s =>
-        `<span style="font-size:10px;color:var(--accent)">r/${esc(s)}</span>`
-      ).join(" · ") || `<span style="font-size:10px;color:var(--text-muted)">—</span>`;
-
-      return `
-        <div class="compare-col${isWinner ? " winner" : ""}">
-          ${isWinner ? `<div class="winner-badge">🏆 Top Pick</div>` : ""}
-          <div class="compare-col-image">
-            ${p.image_url
-              ? `<img src="${esc(p.image_url)}" alt="${esc(p.model)}" loading="lazy">`
-              : `<span style="font-size:36px;opacity:0.2">📦</span>`}
-          </div>
-          <div>
-            <div class="compare-col-brand">${esc(p.brand || "")}</div>
-            <div class="compare-col-name">${esc(p.model || "")}</div>
-          </div>
-          <div>
-            <div style="font-size:10px;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">Sentiment Score</div>
-            <div class="compare-score-row">
-              <div class="compare-score-bar-wrap">
-                <div class="compare-score-bar" style="width:${pct}%"></div>
-              </div>
-              <span class="compare-score-val">${pct}%</span>
-            </div>
-            <div style="font-size:11px;color:var(--text-muted);margin-top:4px">${total.toLocaleString()} reviews</div>
-          </div>
-          ${p.price ? `<div class="card-price">$${parseFloat(p.price).toFixed(2)}<span>Amazon</span></div>` : ""}
-          <div class="compare-pc-section">
-            <div class="compare-pc-title pos">Pros</div>
-            ${prosHTML}
-          </div>
-          <div class="compare-pc-section">
-            <div class="compare-pc-title neg">Cons</div>
-            ${consHTML}
-          </div>
-          <div>
-            <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em">Discussed on</div>
-            ${subredditsHTML}
-          </div>
-        </div>`;
-    }).join("");
+    let tbody = "";
+    rows.forEach(row => {
+      tbody += `<tr><td class="row-label">${esc(row.label)}</td>`;
+      products.forEach((p, i) => {
+        const isWinner = i === winnerIdx && products.length > 1;
+        tbody += `<td class="${isWinner ? "winner-col" : ""}">${row.render(p, i)}</td>`;
+      });
+      tbody += `</tr>`;
+    });
 
     body.innerHTML = `
-      <div class="compare-grid cols-${cols}">
-        ${colsHTML}
+      <div class="compare-table-wrap">
+        <table class="compare-table">
+          <thead>${thead}</thead>
+          <tbody>${tbody}</tbody>
+        </table>
       </div>`;
   }
 
   /* ════════════════════════════════════════════
-     PRODUCT DETAIL MODAL
+     DETAIL VIEW
   ════════════════════════════════════════════ */
-  async function openDetailModal(productId, rankingItem) {
+  async function openDetailView(productId, rankingItem) {
     if (!productId) return;
-    const modal = document.getElementById("detail-modal");
-    const body  = document.getElementById("detail-modal-body");
-    const title = document.getElementById("detail-modal-title");
+    state.currentDetail = rankingItem;
 
-    const model = rankingItem?.product?.model_name || "Product Detail";
-    title.textContent = model;
+    const view  = document.getElementById("detail-view");
+    const body  = document.getElementById("detail-body");
+    const title = document.getElementById("detail-topbar-title");
+
+    title.textContent = rankingItem?.product?.model_name || "Product Detail";
     body.innerHTML = `<div class="state-container"><div class="spinner"></div><span class="state-msg">Loading…</span></div>`;
-    openModal(modal);
+    view.classList.add("open");
+    document.body.style.overflow = "hidden";
+
+    // Update compare button state
+    const addCompareBtn = document.getElementById("detail-add-compare");
+    const pid = rankingItem?.product_id || rankingItem?.product?.id;
+    const alreadyIn = state.compareList.some(c => (c.product_id || c.product?.id) === pid);
+    addCompareBtn.textContent = alreadyIn ? "✓ In Compare" : "+ Compare";
+    addCompareBtn.disabled = alreadyIn;
 
     try {
       const [detailData, trendData] = await Promise.all([
         fetchProductDetail(productId),
         fetchTrend(productId),
       ]);
-      renderDetailModal(detailData, trendData, rankingItem);
+      renderDetailView(detailData, trendData, rankingItem);
     } catch (err) {
       body.innerHTML = `<div class="state-container"><div style="font-size:32px">⚠️</div><p class="state-msg">Failed to load product details.</p></div>`;
     }
   }
 
-  function renderDetailModal(detailData, trendData, rankingItem) {
-    const body    = document.getElementById("detail-modal-body");
+  function closeDetailView() {
+    const view = document.getElementById("detail-view");
+    view.classList.remove("open");
+    document.body.style.overflow = "";
+    destroyAllCharts();
+    state.currentDetail = null;
+  }
+
+  function renderDetailView(detailData, trendData, rankingItem) {
+    const body    = document.getElementById("detail-body");
     const product = detailData.product || {};
     const reviews = detailData.reviews || [];
     const aspects = detailData.aspects || [];
@@ -1819,6 +2061,9 @@
     const neuCount = ranking.neutral_count   || 0;
     const total    = posCount + negCount + neuCount;
     const percentile = product.reddit_percentile || 0;
+
+    const trending = isTrending(reviews);
+    const verified = isVerified(reviews);
 
     const pros = aspects.filter(a => a.sentiment === "positive").slice(0, 6);
     const cons = aspects.filter(a => a.sentiment === "negative").slice(0, 6);
@@ -1841,21 +2086,92 @@
           </div>`).join("")
       : `<div class="pc-item text-muted">No aspect data available</div>`;
 
+    // Subreddit heatmap data
+    const subMap = {};
+    reviews.forEach(r => {
+      if (!r.subreddit) return;
+      if (!subMap[r.subreddit]) subMap[r.subreddit] = { pos: 0, neg: 0, neu: 0 };
+      if (r.sentiment === "positive") subMap[r.subreddit].pos++;
+      else if (r.sentiment === "negative") subMap[r.subreddit].neg++;
+      else subMap[r.subreddit].neu++;
+    });
+    const subEntries = Object.entries(subMap).sort((a, b) => (b[1].pos + b[1].neg) - (a[1].pos + a[1].neg));
+
+    const heatmapHTML = subEntries.length ? subEntries.map(([sub, counts]) => {
+      const subTotal = counts.pos + counts.neg + counts.neu;
+      const posPct   = subTotal ? ((counts.pos / subTotal) * 100).toFixed(0) : 0;
+      const negPct   = subTotal ? ((counts.neg / subTotal) * 100).toFixed(0) : 0;
+      return `
+        <div class="heatmap-row">
+          <div class="heatmap-label">r/${esc(sub)}</div>
+          <div class="heatmap-bar-track">
+            <div class="heatmap-bar-pos" style="width:${posPct}%"></div>
+            <div class="heatmap-bar-neg" style="width:${negPct}%"></div>
+          </div>
+          <div class="heatmap-count">${subTotal} reviews</div>
+        </div>`;
+    }).join("") : `<div class="text-muted" style="font-size:13px">No subreddit data available</div>`;
+
+    // Reviews with show more/less
     const reviewsHTML = reviews.length
-      ? reviews.map(r => `
-          <div class="review-card">
-            <div class="review-header">
-              <div class="review-meta">
-                ${r.subreddit ? `<span class="review-sub">r/${esc(r.subreddit)}</span>` : ""}
-                ${r.created_at ? `<span class="review-date">${formatDate(r.created_at)}</span>` : ""}
+      ? reviews.map((r, idx) => {
+          const text = r.verbatim || "";
+          const isLong = text.length > REVIEW_TRUNCATE;
+          const shortText = isLong ? text.slice(0, REVIEW_TRUNCATE) + "…" : text;
+          const reviewId = `review-${idx}`;
+          return `
+            <div class="review-card">
+              <div class="review-header">
+                <div class="review-meta">
+                  ${r.subreddit ? `<span class="review-sub">r/${esc(r.subreddit)}</span>` : ""}
+                  ${r.created_at ? `<span class="review-date">${formatDate(r.created_at)}</span>` : ""}
+                </div>
+                <span class="sentiment-badge ${esc(r.sentiment || "neutral")}">${esc(r.sentiment || "neutral")}</span>
               </div>
-              <span class="sentiment-badge ${esc(r.sentiment || "neutral")}">${esc(r.sentiment || "neutral")}</span>
-            </div>
-            <p class="review-text">${esc(r.verbatim || "")}</p>
-          </div>`).join("")
+              <div class="reddit-preview">
+                <div class="reddit-preview-header">
+                  <span class="reddit-icon">🔴</span>
+                  ${r.subreddit ? `<span class="reddit-preview-sub">r/${esc(r.subreddit)}</span>` : ""}
+                </div>
+                <div class="reddit-preview-text">
+                  <span class="review-text-short" id="${reviewId}-short">${esc(shortText)}</span>
+                  ${isLong ? `
+                    <span class="review-text-full" id="${reviewId}-full">${esc(text)}</span>
+                    <button class="show-more-btn" data-review="${reviewId}" data-expanded="false">
+                      Show more ▼
+                    </button>` : ""}
+                </div>
+              </div>
+            </div>`;
+        }).join("")
       : `<div class="empty-state"><div class="empty-icon">💬</div><div class="empty-title">No reviews yet</div></div>`;
 
-    const hasTrend = history.length > 1;
+    // Related products (same category)
+    const category = product.category || "";
+    const related = state.allRankings
+      .filter(r => {
+        const rCat = r.product?.category || "";
+        const rPid = r.product_id || r.product?.id;
+        const thisPid = rankingItem?.product_id || rankingItem?.product?.id;
+        return rCat === category && rPid !== thisPid;
+      })
+      .slice(0, 4);
+
+    const relatedHTML = related.length ? related.map(r => {
+      const rp    = r.product || {};
+      const rPid  = r.product_id || rp.id || "";
+      const rScore = Math.round((r.sentiment_score || 0) * 100);
+      return `
+        <div class="related-card" data-pid="${esc(rPid)}">
+          <div class="related-card-image">
+            ${rp.image_url
+              ? `<img src="${esc(rp.image_url)}" alt="${esc(rp.model_name || "")}" loading="lazy">`
+              : `<span style="font-size:28px;opacity:0.2">📦</span>`}
+          </div>
+          <div class="related-card-name">${esc(rp.model_name || "")}</div>
+          <div class="related-card-score">${rScore}% positive</div>
+        </div>`;
+    }).join("") : "";
 
     body.innerHTML = `
       <!-- Hero -->
@@ -1864,16 +2180,20 @@
           ${product.image_url
             ? `<img src="${esc(product.image_url)}" alt="${esc(product.model_name || "")}" loading="lazy">`
             : `<span style="font-size:56px;opacity:0.2">📦</span>`}
+          <div class="detail-badges">
+            ${trending ? `<span class="badge badge-trending">🔥 Trending</span>` : ""}
+            ${verified ? `<span class="badge badge-verified">✓ Verified</span>` : ""}
+          </div>
         </div>
         <div class="detail-info">
           <div>
             <div class="detail-brand">${esc(product.brand || "")}</div>
             <div class="detail-name">${esc(product.model_name || "")}</div>
-            ${product.category ? `<div class="detail-category">${esc(product.category)}</div>` : ""}
+            ${product.category ? `<div class="detail-category">📂 ${esc(product.category)}</div>` : ""}
           </div>
           <div class="detail-stats">
             <div class="stat-box">
-              <div class="stat-value ${scoreClass(score) === "high" ? "positive" : scoreClass(score) === "low" ? "negative" : ""}">${scorePct(score)}</div>
+              <div class="stat-value orange">${scorePct(score)}</div>
               <div class="stat-label">Positive</div>
             </div>
             <div class="stat-box">
@@ -1882,15 +2202,15 @@
             </div>
             <div class="stat-box">
               <div class="stat-value positive">${posCount.toLocaleString()}</div>
-              <div class="stat-label">Positive</div>
+              <div class="stat-label">👍 Pos</div>
             </div>
             <div class="stat-box">
               <div class="stat-value negative">${negCount.toLocaleString()}</div>
-              <div class="stat-label">Negative</div>
+              <div class="stat-label">👎 Neg</div>
             </div>
             ${percentile ? `
             <div class="stat-box">
-              <div class="stat-value">${percentile}th</div>
+              <div class="stat-value orange">${percentile}th</div>
               <div class="stat-label">Percentile</div>
             </div>` : ""}
           </div>
@@ -1899,80 +2219,88 @@
             ${product.amazon_url
               ? `<a href="${esc(product.amazon_url)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">View on Amazon ↗</a>`
               : ""}
-            <button class="btn btn-secondary btn-sm" id="detail-add-compare">+ Add to Compare</button>
           </div>
         </div>
       </div>
 
-      <!-- Tabs -->
-      <div class="tabs">
-        <button class="tab-btn active" data-tab="overview">Overview</button>
-        <button class="tab-btn" data-tab="reviews">Reviews (${reviews.length})</button>
-        ${hasTrend ? `<button class="tab-btn" data-tab="trend">Sentiment Trend</button>` : ""}
-      </div>
+      ${sentimentBarHTML(posCount, negCount, neuCount)}
 
-      <!-- Overview tab -->
-      <div class="tab-panel active" id="tab-overview">
-        <div class="pros-cons-grid">
-          <div class="pros-box">
-            <div class="pc-title">👍 Pros</div>
-            ${prosHTML}
-          </div>
-          <div class="cons-box">
-            <div class="pc-title">👎 Cons</div>
-            ${consHTML}
-          </div>
+      <!-- Subreddit Heatmap -->
+      ${subEntries.length ? `
+      <div class="heatmap-section mt-16">
+        <div class="heatmap-title">📊 Subreddit Sentiment Heatmap</div>
+        <div class="heatmap-grid">${heatmapHTML}</div>
+      </div>` : ""}
+
+      <!-- Pros & Cons -->
+      <div class="pros-cons-grid mt-16">
+        <div class="pros-box">
+          <div class="pc-title">👍 Pros</div>
+          ${prosHTML}
         </div>
-        ${sentimentBarHTML(posCount, negCount, neuCount)}
-      </div>
-
-      <!-- Reviews tab -->
-      <div class="tab-panel" id="tab-reviews">
-        <div class="review-list">${reviewsHTML}</div>
-      </div>
-
-      ${hasTrend ? `
-      <!-- Trend tab -->
-      <div class="tab-panel" id="tab-trend">
-        <div class="trend-wrap">
-          <div class="trend-title">Sentiment Score Over Time</div>
-          <div class="trend-chart-wrap">
-            <canvas id="trend-chart"></canvas>
-          </div>
+        <div class="cons-box">
+          <div class="pc-title">👎 Cons</div>
+          ${consHTML}
         </div>
-      </div>` : ""}`;
+      </div>
 
-    // Tab switching
-    body.querySelectorAll(".tab-btn").forEach(btn => {
+      <!-- Sentiment Trend -->
+      ${history.length > 1 ? `
+      <div class="trend-section">
+        <div class="trend-title">📈 Sentiment Trend Over Time</div>
+        <div class="trend-chart-wrap">
+          <canvas id="trend-chart"></canvas>
+        </div>
+      </div>` : ""}
+
+      <!-- Reddit Reviews -->
+      <div class="reviews-section">
+        <div class="reviews-title">💬 Reddit Reviews (${reviews.length})</div>
+        ${reviewsHTML}
+      </div>
+
+      <!-- Related Products -->
+      ${related.length ? `
+      <div class="related-section">
+        <div class="related-title">🔗 Related Products in ${esc(category)}</div>
+        <div class="related-grid">${relatedHTML}</div>
+      </div>` : ""}
+    `;
+
+    // Draw trend chart
+    if (history.length > 1) {
+      setTimeout(() => drawTrendChart(history), 50);
+    }
+
+    // Show more/less for reviews
+    body.querySelectorAll(".show-more-btn").forEach(btn => {
       btn.addEventListener("click", () => {
-        body.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-        body.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
-        btn.classList.add("active");
-        const panel = body.querySelector(`#tab-${btn.dataset.tab}`);
-        if (panel) {
-          panel.classList.add("active");
-          if (btn.dataset.tab === "trend") drawTrendChart(history);
+        const reviewId = btn.dataset.review;
+        const expanded = btn.dataset.expanded === "true";
+        const shortEl  = document.getElementById(`${reviewId}-short`);
+        const fullEl   = document.getElementById(`${reviewId}-full`);
+        if (expanded) {
+          shortEl.style.display = "inline";
+          fullEl.classList.remove("expanded");
+          btn.textContent = "Show more ▼";
+          btn.dataset.expanded = "false";
+        } else {
+          shortEl.style.display = "none";
+          fullEl.classList.add("expanded");
+          btn.textContent = "Show less ▲";
+          btn.dataset.expanded = "true";
         }
       });
     });
 
-    // Add to compare
-    const addCompareBtn = body.querySelector("#detail-add-compare");
-    if (addCompareBtn && rankingItem) {
-      const pid = rankingItem.product_id || rankingItem.product?.id;
-      const alreadyIn = state.compareList.some(c => (c.product_id || c.product?.id) === pid);
-      if (alreadyIn) { addCompareBtn.textContent = "✓ In Compare"; addCompareBtn.disabled = true; }
-      addCompareBtn.addEventListener("click", () => {
-        if (state.compareList.length >= MAX_COMPARE) { alert(`Max ${MAX_COMPARE} products.`); return; }
-        state.compareList.push(rankingItem);
-        addCompareBtn.textContent = "✓ In Compare";
-        addCompareBtn.disabled = true;
-        updateCompareBar();
-        // Update card button if visible
-        const cardBtn = document.querySelector(`.card-compare-btn[data-pid="${CSS.escape(pid)}"]`);
-        if (cardBtn) { cardBtn.textContent = "✓ Added"; cardBtn.classList.add("selected"); }
+    // Related product clicks
+    body.querySelectorAll(".related-card").forEach(card => {
+      card.addEventListener("click", () => {
+        const rPid = card.dataset.pid;
+        const rItem = state.allRankings.find(r => (r.product_id || r.product?.id) === rPid);
+        if (rItem) openDetailView(rPid, rItem);
       });
-    }
+    });
   }
 
   function drawTrendChart(history) {
@@ -1982,9 +2310,9 @@
 
     const labels = history.map(h => h.date ? formatDate(h.date) : "");
     const scores = history.map(h => Math.round((h.sentiment_score || 0) * 100));
-    const isDark  = document.documentElement.getAttribute("data-theme") !== "light";
+    const isDark  = document.body.classList.contains("dark-mode");
     const gridColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
-    const textColor = isDark ? "#64748b" : "#94a3b8";
+    const textColor = isDark ? "#a08060" : "#95a5a6";
 
     state.activeCharts["trend-chart"] = new Chart(canvas, {
       type: "line",
@@ -1993,11 +2321,11 @@
         datasets: [{
           label: "Sentiment %",
           data: scores,
-          borderColor: "#6c63ff",
-          backgroundColor: "rgba(108,99,255,0.12)",
-          borderWidth: 2,
+          borderColor: "#f39c12",
+          backgroundColor: "rgba(243,156,18,0.12)",
+          borderWidth: 2.5,
           pointRadius: 4,
-          pointBackgroundColor: "#6c63ff",
+          pointBackgroundColor: "#f39c12",
           fill: true,
           tension: 0.35,
         }]
@@ -2027,174 +2355,6 @@
   }
 
   /* ════════════════════════════════════════════
-     SEARCH
-  ════════════════════════════════════════════ */
-  function bindSearch() {
-    const input    = document.getElementById("search-input");
-    const dropdown = document.getElementById("search-dropdown");
-
-    input.addEventListener("input", () => {
-      clearTimeout(state.searchTimer);
-      const q = input.value.trim();
-      if (q.length < 2) { dropdown.classList.add("hidden"); return; }
-      state.searchTimer = setTimeout(async () => {
-        const results = await fetchSearch(q);
-        renderSearchDropdown(results, dropdown);
-      }, 300);
-    });
-
-    input.addEventListener("keydown", e => {
-      if (e.key === "Escape") { dropdown.classList.add("hidden"); input.blur(); }
-    });
-
-    document.addEventListener("click", e => {
-      if (!document.getElementById("search-wrap").contains(e.target)) {
-        dropdown.classList.add("hidden");
-      }
-    });
-  }
-
-  function renderSearchDropdown(results, dropdown) {
-    if (!results.length) {
-      dropdown.innerHTML = `<div style="padding:12px 14px;font-size:13px;color:var(--text-muted)">No results found</div>`;
-      dropdown.classList.remove("hidden");
-      return;
-    }
-    dropdown.innerHTML = results.slice(0, 8).map(r => {
-      const score = r.ranking?.sentiment_score;
-      const pct   = score != null ? Math.round(score * 100) + "%" : "";
-      return `
-        <div class="search-result-item" data-product-id="${esc(r.id)}">
-          <div>
-            <div class="search-result-name">${esc(r.model_name || "")}</div>
-            <div class="search-result-brand">${esc(r.brand || "")} · ${esc(r.category || "")}</div>
-          </div>
-          ${pct ? `<span class="search-result-score ${scoreClass(score)}" style="color:var(--${scoreClass(score) === "high" ? "positive" : scoreClass(score) === "low" ? "negative" : "warning"})">${pct}</span>` : ""}
-        </div>`;
-    }).join("");
-
-    dropdown.querySelectorAll(".search-result-item").forEach(item => {
-      item.addEventListener("click", () => {
-        const pid = item.dataset.productId;
-        dropdown.classList.add("hidden");
-        document.getElementById("search-input").value = "";
-        // Build a minimal ranking item for the detail modal
-        const result = results.find(r => r.id === pid);
-        const fakeRanking = {
-          product_id: pid,
-          product: result,
-          sentiment_score: result?.ranking?.sentiment_score || 0,
-          positive_count:  result?.ranking?.positive_count  || 0,
-          negative_count:  result?.ranking?.negative_count  || 0,
-          neutral_count:   result?.ranking?.neutral_count   || 0,
-        };
-        openDetailModal(pid, fakeRanking);
-      });
-    });
-
-    dropdown.classList.remove("hidden");
-  }
-
-  /* ════════════════════════════════════════════
-     MODAL HELPERS
-  ════════════════════════════════════════════ */
-  function openModal(modalEl) {
-    modalEl.classList.add("open");
-    document.body.style.overflow = "hidden";
-  }
-
-  function closeModal(modalEl) {
-    modalEl.classList.remove("open");
-    document.body.style.overflow = "";
-    destroyAllCharts();
-  }
-
-  function bindModalEvents() {
-    // Detail modal
-    document.getElementById("detail-modal-close").addEventListener("click", () => {
-      closeModal(document.getElementById("detail-modal"));
-    });
-    document.getElementById("detail-modal").addEventListener("click", e => {
-      if (e.target === e.currentTarget) closeModal(e.currentTarget);
-    });
-
-    // Compare modal
-    document.getElementById("compare-modal-close").addEventListener("click", () => {
-      closeModal(document.getElementById("compare-modal"));
-    });
-    document.getElementById("compare-modal").addEventListener("click", e => {
-      if (e.target === e.currentTarget) closeModal(e.currentTarget);
-    });
-
-    // Compare bar buttons
-    document.getElementById("compare-run-btn").addEventListener("click", openCompareModal);
-    document.getElementById("compare-clear-btn").addEventListener("click", () => {
-      state.compareList = [];
-      document.querySelectorAll(".card-compare-btn.selected").forEach(btn => {
-        btn.textContent = "+ Compare";
-        btn.classList.remove("selected");
-      });
-      updateCompareBar();
-    });
-
-    // Keyboard ESC
-    document.addEventListener("keydown", e => {
-      if (e.key === "Escape") {
-        closeModal(document.getElementById("detail-modal"));
-        closeModal(document.getElementById("compare-modal"));
-      }
-    });
-  }
-
-  /* ════════════════════════════════════════════
-     THEME TOGGLE
-  ════════════════════════════════════════════ */
-  function bindThemeToggle() {
-    const btn       = document.getElementById("theme-btn");
-    const iconDark  = document.getElementById("theme-icon-dark");
-    const iconLight = document.getElementById("theme-icon-light");
-
-    // Restore saved preference
-    const saved = localStorage.getItem("widget-theme");
-    if (saved) applyTheme(saved);
-
-    btn.addEventListener("click", () => {
-      const current = document.documentElement.getAttribute("data-theme") || "dark";
-      const next    = current === "dark" ? "light" : "dark";
-      applyTheme(next);
-      localStorage.setItem("widget-theme", next);
-    });
-
-    function applyTheme(theme) {
-      document.documentElement.setAttribute("data-theme", theme);
-      if (theme === "light") {
-        iconDark.classList.add("hidden");
-        iconLight.classList.remove("hidden");
-      } else {
-        iconDark.classList.remove("hidden");
-        iconLight.classList.add("hidden");
-      }
-    }
-  }
-
-  /* ════════════════════════════════════════════
-     FILTER EVENTS
-  ════════════════════════════════════════════ */
-  function bindFilterEvents() {
-    document.getElementById("filter-category").addEventListener("change", e => {
-      state.filters.category = e.target.value;
-      state.currentPage = 1;
-      loadAndRenderRankings();
-    });
-
-    document.getElementById("filter-subreddit").addEventListener("change", e => {
-      state.filters.subreddit = e.target.value;
-      state.currentPage = 1;
-      loadAndRenderRankings();
-    });
-  }
-
-  /* ════════════════════════════════════════════
      LOAD & RENDER RANKINGS
   ════════════════════════════════════════════ */
   async function loadAndRenderRankings() {
@@ -2215,12 +2375,69 @@
   }
 
   /* ════════════════════════════════════════════
+     BIND GLOBAL EVENTS
+  ════════════════════════════════════════════ */
+  function bindGlobalEvents() {
+    // Detail view back button
+    document.getElementById("detail-back").addEventListener("click", closeDetailView);
+
+    // Detail view add-to-compare button
+    document.getElementById("detail-add-compare").addEventListener("click", () => {
+      if (!state.currentDetail) return;
+      const btn = document.getElementById("detail-add-compare");
+      toggleCompare(state.currentDetail, null);
+      const pid = state.currentDetail.product_id || state.currentDetail.product?.id;
+      const alreadyIn = state.compareList.some(c => (c.product_id || c.product?.id) === pid);
+      btn.textContent = alreadyIn ? "✓ In Compare" : "+ Compare";
+      btn.disabled = alreadyIn;
+      // Sync card button
+      const cardBtn = document.querySelector(`.card-compare-btn[data-pid="${CSS.escape(pid)}"]`);
+      if (cardBtn) {
+        cardBtn.textContent = alreadyIn ? "✓ Added" : "+ Compare";
+        cardBtn.classList.toggle("selected", alreadyIn);
+      }
+    });
+
+    // Compare bar buttons
+    document.getElementById("compare-run-btn").addEventListener("click", openCompareModal);
+    document.getElementById("compare-clear-btn").addEventListener("click", () => {
+      state.compareList = [];
+      document.querySelectorAll(".card-compare-btn.selected").forEach(btn => {
+        btn.textContent = "+ Compare";
+        btn.classList.remove("selected");
+      });
+      updateCompareBar();
+    });
+
+    // Compare modal close
+    document.getElementById("compare-modal-close").addEventListener("click", () => {
+      document.getElementById("compare-modal").classList.remove("open");
+      document.body.style.overflow = "";
+    });
+    document.getElementById("compare-modal").addEventListener("click", e => {
+      if (e.target === e.currentTarget) {
+        e.currentTarget.classList.remove("open");
+        document.body.style.overflow = "";
+      }
+    });
+
+    // ESC key
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape") {
+        closeDetailView();
+        document.getElementById("compare-modal").classList.remove("open");
+        document.body.style.overflow = "";
+      }
+    });
+  }
+
+  /* ════════════════════════════════════════════
      BOOT
   ════════════════════════════════════════════ */
   async function boot() {
     // Anti-embedding check
     if (!isEmbeddingAllowed()) {
-      appEl.innerHTML = `
+      document.body.innerHTML = `
         <div class="blocked">
           <div style="font-size:48px">🚫</div>
           <h2>Embedding Not Allowed</h2>
@@ -2229,18 +2446,16 @@
       return;
     }
 
-    // Build shell
-    buildShell();
+    // Dark mode
+    initDarkMode();
 
-    // Bind all events
-    bindThemeToggle();
-    bindModalEvents();
-    bindSearch();
+    // Bind events
+    bindGlobalEvents();
+    bindFilterEvents();
 
     // Fetch supporting data in parallel
-    await Promise.allSettled([fetchCategories(), fetchSubreddits()]);
+    await Promise.allSettled([fetchCategories(), fetchSubreddits(), fetchAllRankings()]);
     populateFilters();
-    bindFilterEvents();
 
     // Load initial rankings
     await loadAndRenderRankings();
