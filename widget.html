@@ -63,7 +63,37 @@
         }
         .header h1 { margin: 0; font-size: 2rem; display: inline-flex; align-items: center; gap: 10px; }
         .theme-toggle { background: rgba(255,255,255,0.2); border: none; border-radius: 60px; padding: 0.4rem 1rem; font-size: 0.9rem; cursor: pointer; color: white; }
-        .filters { display: flex; flex-wrap: wrap; gap: 1rem; padding: 1.2rem 2rem; background: var(--filter-bg); border-bottom: 1px solid var(--border); align-items: flex-end; }
+        .main-content { display: flex; flex-wrap: wrap; }
+        .filters-sidebar {
+            width: 260px;
+            background: var(--filter-bg);
+            padding: 1.5rem;
+            border-right: 1px solid var(--border);
+        }
+        .filter-section {
+            margin-bottom: 1.5rem;
+        }
+        .filter-section h4 {
+            margin: 0 0 0.5rem;
+            font-size: 0.9rem;
+        }
+        .filter-section label {
+            display: block;
+            font-size: 0.8rem;
+            margin-bottom: 0.3rem;
+        }
+        .right-col {
+            flex: 1;
+        }
+        .filters-top {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            padding: 1.2rem 2rem;
+            background: var(--filter-bg);
+            border-bottom: 1px solid var(--border);
+            align-items: flex-end;
+        }
         .filter-group { display: flex; flex-direction: column; gap: 0.3rem; }
         .filter-group label { font-weight: 600; font-size: 0.7rem; text-transform: uppercase; color: var(--text-secondary); }
         select, input, button { padding: 0.6rem 1.2rem; border-radius: 40px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-primary); font-size: 0.9rem; cursor: pointer; }
@@ -93,8 +123,10 @@
         .quote-list { margin-top: 0.5rem; padding-left: 1rem; font-size: 0.9rem; color: var(--text-secondary); }
         .quote-list p { margin: 0.3rem 0; font-style: italic; }
         .review-card { border-bottom: 1px solid var(--border); padding: 1rem 0; }
-        .review-meta { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.3rem; }
-        .review-meta a { color: var(--btn-bg); text-decoration: none; }
+        .review-meta { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.3rem; display: flex; justify-content: space-between; align-items: center; }
+        .vote-buttons { display: flex; gap: 0.5rem; }
+        .vote-btn { background: none; border: none; font-size: 1.1rem; cursor: pointer; padding: 0 0.2rem; }
+        .helpful-score { font-size: 0.8rem; color: var(--text-secondary); margin-left: 0.5rem; }
         .review-text { margin: 0.5rem 0; overflow-wrap: break-word; }
         .show-more-btn, .preview-toggle-btn { background: none; border: none; color: var(--btn-bg); cursor: pointer; font-size: 0.8rem; padding: 0; margin-top: 0.3rem; }
         .related-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem; }
@@ -113,10 +145,13 @@
         .heatmap-label { width: 150px; font-size: 0.8rem; }
         .heatmap-fill { background: var(--btn-bg); height: 20px; border-radius: 10px; }
         .reddit-preview { background: var(--filter-bg); padding: 1rem; border-radius: 20px; margin: 1rem 0; }
-        .preview-full { display: none; white-space: pre-wrap; }
+        .activity-feed { background: var(--filter-bg); border-radius: 20px; padding: 1rem; margin: 0 2rem 1rem 2rem; }
+        .activity-item { border-bottom: 1px solid var(--border); padding: 0.5rem 0; }
+        .activity-item:last-child { border: none; }
+        .week-review-banner { background: var(--btn-bg); color: white; padding: 0.8rem 1rem; border-radius: 40px; margin: 0 2rem 1rem 2rem; text-align: center; cursor: pointer; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         footer { background: var(--card-bg); text-align: center; padding: 1rem; font-size: 0.75rem; border-top: 1px solid var(--border); }
-        @media (max-width: 640px) { .filters { flex-direction: column; } .pros-cons-grid { flex-direction: column; } }
+        @media (max-width: 768px) { .filters-sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); } .main-content { flex-direction: column; } .filters-top { flex-direction: column; align-items: stretch; } }
         .hidden { display: none; }
     </style>
 </head>
@@ -128,55 +163,66 @@
     </div>
 
     <div id="gridView">
-        <div class="filters">
-            <div class="filter-group">
-                <label>📂 Category</label>
-                <select id="categorySelect">
-                    <option value="">All</option>
-                    <option value="air-purifier">Air Purifiers</option>
-                    <option value="humidifier">Humidifiers</option>
-                    <option value="air-conditioner">Portable ACs</option>
-                    <option value="smart-thermostat">Smart Thermostats</option>
-                    <option value="air-quality-monitor">Air Quality Monitors</option>
-                    <option value="whole-house-dehumidifier">Whole‑House Dehumidifiers</option>
-                    <option value="portable-dehumidifier">Portable Dehumidifiers</option>
-                    <option value="ventilation-fan-hrv-erv">Ventilation Fans (HRV/ERV)</option>
-                    <option value="smart-vent">Smart Vents</option>
-                    <option value="air-filter">Air Filters</option>
-                    <option value="co-detector">CO Detectors</option>
-                    <option value="ceiling-fan">Ceiling Fans</option>
-                    <option value="space-heater">Space Heaters</option>
-                    <option value="ductless-mini-split">Ductless Mini‑Splits</option>
-                    <option value="evaporative-cooler">Evaporative Coolers</option>
-                    <option value="uv-air-purifier">UV Air Purifiers</option>
-                </select>
+        <div class="week-review-banner" id="weekReviewBanner" style="display: none;">🏆 Review of the week: <span id="weekReviewText"></span></div>
+        <div class="activity-feed" id="activityFeed">⏳ Loading recent activity...</div>
+        <div class="main-content">
+            <div class="filters-sidebar" id="filterSidebar">
+                <h3>🔍 Filter by specs</h3>
+                <div id="specFilters"></div>
+                <button id="clearFiltersBtn" style="width:100%; margin-top:1rem;">Clear all filters</button>
             </div>
-            <div class="filter-group">
-                <label>🎯 Use Case</label>
-                <select id="usecaseSelect">
-                    <option value="">Any</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <label>🎯 Subreddit</label>
-                <input type="text" id="subredditInput" placeholder="e.g., BuyItForLife">
-            </div>
-            <div class="filter-group">
-                <label>&nbsp;</label>
-                <button id="runBtn">✨ Apply filters</button>
+            <div class="right-col">
+                <div class="filters-top">
+                    <div class="filter-group">
+                        <label>📂 Category</label>
+                        <select id="categorySelect">
+                            <option value="">All</option>
+                            <option value="air-purifier">Air Purifiers</option>
+                            <option value="humidifier">Humidifiers</option>
+                            <option value="air-conditioner">Portable ACs</option>
+                            <option value="smart-thermostat">Smart Thermostats</option>
+                            <option value="air-quality-monitor">Air Quality Monitors</option>
+                            <option value="whole-house-dehumidifier">Whole‑House Dehumidifiers</option>
+                            <option value="portable-dehumidifier">Portable Dehumidifiers</option>
+                            <option value="ventilation-fan-hrv-erv">Ventilation Fans (HRV/ERV)</option>
+                            <option value="smart-vent">Smart Vents</option>
+                            <option value="air-filter">Air Filters</option>
+                            <option value="co-detector">CO Detectors</option>
+                            <option value="ceiling-fan">Ceiling Fans</option>
+                            <option value="space-heater">Space Heaters</option>
+                            <option value="ductless-mini-split">Ductless Mini‑Splits</option>
+                            <option value="evaporative-cooler">Evaporative Coolers</option>
+                            <option value="uv-air-purifier">UV Air Purifiers</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>🎯 Use Case</label>
+                        <select id="usecaseSelect">
+                            <option value="">Any</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>🎯 Subreddit</label>
+                        <input type="text" id="subredditInput" placeholder="e.g., BuyItForLife">
+                    </div>
+                    <div class="filter-group">
+                        <label>&nbsp;</label>
+                        <button id="runBtn">✨ Apply filters</button>
+                    </div>
+                </div>
+                <div class="best-for-you">
+                    <strong>🤔 Best for you?</strong> <span style="font-size:0.8rem;">Select your main concern:</span>
+                    <div id="usecaseButtonsContainer" class="usecase-buttons"></div>
+                    <div id="personalisedResults" style="margin-top: 1rem;"></div>
+                </div>
+                <div class="compare-bar">
+                    <span>Select products to compare (2‑3)</span>
+                    <button id="compareBtn">🔍 Compare Selected</button>
+                </div>
+                <div id="productsContainer" class="product-grid"><div class="loading">⏳ Loading products...</div></div>
+                <div class="load-more"><button id="loadMoreBtn">Load More</button></div>
             </div>
         </div>
-        <div class="best-for-you">
-            <strong>🤔 Best for you?</strong> <span style="font-size:0.8rem;">Select your main concern:</span>
-            <div id="usecaseButtonsContainer" class="usecase-buttons"></div>
-            <div id="personalisedResults" style="margin-top: 1rem;"></div>
-        </div>
-        <div class="compare-bar">
-            <span>Select products to compare (2‑3)</span>
-            <button id="compareBtn">🔍 Compare Selected</button>
-        </div>
-        <div id="productsContainer" class="product-grid"><div class="loading">⏳ Loading products...</div></div>
-        <div class="load-more"><button id="loadMoreBtn">Load More</button></div>
     </div>
 
     <div id="detailView" style="display: none;" class="detail-view">
@@ -201,10 +247,12 @@
     let currentCategory = '';
     let currentSubreddit = '';
     let currentUsecase = '';
+    let currentSpecFilters = {};  // e.g. { room_size: 'up to 300 sq ft' }
     let chartInstance = null;
+    let activityInterval = null;
     const TRUSTED_SUBREDDITS = ['BuyItForLife', 'HomeImprovement', 'AirPurifiers', 'HVAC', 'Home', 'GoodValue', 'BIFL'];
 
-    // Mapping of categories to use-case buttons (label and API usecase value)
+    // Use case mapping (same as before)
     const useCaseMap = {
         'air-purifier': [
             { label: '🚬 Smoke & Odor', value: 'smoke' },
@@ -319,8 +367,13 @@
             { label: '🏢 Whole‑House', value: 'whole-house' }
         ]
     };
-
     const defaultUseCases = [{ label: '✨ General recommendations', value: 'general' }];
+
+    // ----- Helper functions -----
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m] || m));
+    }
 
     // Dark mode toggle
     const themeToggle = document.getElementById('themeToggle');
@@ -329,11 +382,7 @@
         themeToggle.innerHTML = document.body.classList.contains('dark') ? '☀️ Light mode' : '🌙 Dark mode';
     });
 
-    function escapeHtml(str) {
-        if (!str) return '';
-        return str.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m] || m));
-    }
-
+    // ----- Dynamic use‑case buttons -----
     function updateUsecaseButtons() {
         const category = document.getElementById('categorySelect').value;
         const container = document.getElementById('usecaseButtonsContainer');
@@ -349,11 +398,91 @@
         });
     }
 
-    // Fetch functions
+    // ----- Filters sidebar -----
+    async function loadFilters() {
+        const res = await fetch(`${API_BASE}/filters`);
+        const filters = await res.json();
+        const container = document.getElementById('specFilters');
+        container.innerHTML = '';
+        for (const [key, values] of Object.entries(filters)) {
+            if (!values.length) continue;
+            const section = document.createElement('div');
+            section.className = 'filter-section';
+            section.innerHTML = `<h4>${key.replace(/_/g, ' ')}</h4>`;
+            values.forEach(val => {
+                const label = document.createElement('label');
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.value = val;
+                cb.addEventListener('change', () => {
+                    if (cb.checked) {
+                        currentSpecFilters[key] = val;
+                    } else {
+                        delete currentSpecFilters[key];
+                    }
+                    loadGrid();
+                });
+                label.appendChild(cb);
+                label.appendChild(document.createTextNode(' ' + val));
+                section.appendChild(label);
+            });
+            container.appendChild(section);
+        }
+        document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+            currentSpecFilters = {};
+            document.querySelectorAll('#specFilters input').forEach(cb => cb.checked = false);
+            loadGrid();
+        });
+    }
+
+    // ----- Recent activity feed (auto‑refresh) -----
+    async function loadRecentActivity() {
+        try {
+            const res = await fetch(`${API_BASE}/recent_activity?limit=5`);
+            const data = await res.json();
+            const feed = document.getElementById('activityFeed');
+            if (!data.activity || data.activity.length === 0) {
+                feed.innerHTML = '📭 No recent activity';
+                return;
+            }
+            let html = '<strong>🔄 Recent Reddit activity</strong><div style="margin-top:0.5rem;">';
+            for (let act of data.activity) {
+                const prod = act.product || {};
+                const name = `${prod.brand || ''} ${prod.model_name || ''}`.trim() || 'Product';
+                html += `<div class="activity-item">📌 <strong>${escapeHtml(name)}</strong> – <em>${escapeHtml(act.snippet)}</em><br><small>r/${escapeHtml(act.subreddit || 'reddit')} • ${new Date(act.created_at).toLocaleString()}</small></div>`;
+            }
+            html += '</div>';
+            feed.innerHTML = html;
+        } catch (e) { console.error('Activity feed error', e); }
+    }
+
+    // ----- Review of the week -----
+    async function loadReviewOfWeek() {
+        try {
+            const res = await fetch(`${API_BASE}/review_of_week`);
+            const data = await res.json();
+            const banner = document.getElementById('weekReviewBanner');
+            const textSpan = document.getElementById('weekReviewText');
+            if (data.review && data.review.product) {
+                const prod = data.review.product;
+                const name = `${prod.brand || ''} ${prod.model_name || ''}`.trim();
+                textSpan.innerText = `${name}: “${data.review.snippet}” (👍 ${data.review.helpful_score || 0})`;
+                banner.style.display = 'block';
+                banner.onclick = () => showDetailView(data.review.product_id);
+            } else {
+                banner.style.display = 'none';
+            }
+        } catch (e) { console.error('Review of week error', e); }
+    }
+
+    // ----- Fetch rankings with current filters -----
     async function fetchRankings(category, subreddit, offset, limit) {
         let url = `${API_BASE}/rankings?limit=${limit}&offset=${offset}`;
         if (category) url += `&category=${category}`;
         if (subreddit) url += `&subreddit=${subreddit}`;
+        for (const [key, val] of Object.entries(currentSpecFilters)) {
+            url += `&spec_${key}=${encodeURIComponent(val)}`;
+        }
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
@@ -367,37 +496,7 @@
         return data.recommendations || [];
     }
 
-    // Personalised "Best for you"
-    async function showPersonalised(usecase) {
-        const container = document.getElementById('personalisedResults');
-        container.innerHTML = '<div class="loading">⏳ Loading personalised picks...</div>';
-        const recs = await fetchUsecase(usecase);
-        if (!recs.length) {
-            container.innerHTML = '<p>No products found for this need.</p>';
-            return;
-        }
-        let html = '<div style="display:flex; flex-wrap:wrap; gap:1rem;">';
-        for (let rec of recs.slice(0, 6)) {
-            const p = rec.product;
-            const score = Math.round((rec.score || 0) * 100);
-            html += `
-                <div class="product-card" style="width:200px; cursor:pointer;" data-id="${p.id}">
-                    <img class="product-img" src="${p.image_url || 'https://via.placeholder.com/200x120?text=📸'}" style="height:120px;">
-                    <div class="product-info">
-                        <div class="product-title"><strong>${escapeHtml(p.brand || '')}</strong> ${escapeHtml(p.model_name || '')}</div>
-                        <div class="sentiment-badge">👍 ${score}%</div>
-                    </div>
-                </div>
-            `;
-        }
-        html += '</div>';
-        container.innerHTML = html;
-        container.querySelectorAll('.product-card').forEach(card => {
-            card.addEventListener('click', () => showDetailView(card.dataset.id));
-        });
-    }
-
-    // Grid rendering
+    // ----- Grid rendering -----
     function renderProducts(rankings, isAppend = false) {
         const container = document.getElementById('productsContainer');
         if (!rankings.length && !isAppend) { container.innerHTML = '<div class="error">😕 No products found.</div>'; return; }
@@ -434,6 +533,24 @@
         });
     }
 
+    async function loadMore() {
+        currentOffset += LIMIT;
+        let rankings;
+        if (currentUsecase && currentUsecase !== 'general') {
+            const recs = await fetchUsecase(currentUsecase);
+            const start = currentOffset;
+            const end = start + LIMIT;
+            rankings = recs.slice(start, end);
+            renderProducts(rankings, true);
+            if (end >= recs.length) document.getElementById('loadMoreBtn').style.display = 'none';
+        } else {
+            const data = await fetchRankings(currentCategory, currentSubreddit, currentOffset, LIMIT);
+            rankings = data.rankings || [];
+            renderProducts(rankings, true);
+            if (rankings.length < LIMIT) document.getElementById('loadMoreBtn').style.display = 'none';
+        }
+    }
+
     async function loadGrid() {
         currentCategory = document.getElementById('categorySelect').value;
         currentSubreddit = document.getElementById('subredditInput').value.trim() || null;
@@ -457,25 +574,37 @@
         }
     }
 
-    async function loadMore() {
-        currentOffset += LIMIT;
-        let rankings;
-        if (currentUsecase && currentUsecase !== 'general') {
-            const recs = await fetchUsecase(currentUsecase);
-            const start = currentOffset;
-            const end = start + LIMIT;
-            rankings = recs.slice(start, end);
-            renderProducts(rankings, true);
-            if (end >= recs.length) document.getElementById('loadMoreBtn').style.display = 'none';
-        } else {
-            const data = await fetchRankings(currentCategory, currentSubreddit, currentOffset, LIMIT);
-            rankings = data.rankings || [];
-            renderProducts(rankings, true);
-            if (rankings.length < LIMIT) document.getElementById('loadMoreBtn').style.display = 'none';
+    // ----- Personalised "Best for you" -----
+    async function showPersonalised(usecase) {
+        const container = document.getElementById('personalisedResults');
+        container.innerHTML = '<div class="loading">⏳ Loading personalised picks...</div>';
+        const recs = await fetchUsecase(usecase);
+        if (!recs.length) {
+            container.innerHTML = '<p>No products found for this need.</p>';
+            return;
         }
+        let html = '<div style="display:flex; flex-wrap:wrap; gap:1rem;">';
+        for (let rec of recs.slice(0, 6)) {
+            const p = rec.product;
+            const score = Math.round((rec.score || 0) * 100);
+            html += `
+                <div class="product-card" style="width:200px; cursor:pointer;" data-id="${p.id}">
+                    <img class="product-img" src="${p.image_url || 'https://via.placeholder.com/200x120?text=📸'}" style="height:120px;">
+                    <div class="product-info">
+                        <div class="product-title"><strong>${escapeHtml(p.brand || '')}</strong> ${escapeHtml(p.model_name || '')}</div>
+                        <div class="sentiment-badge">👍 ${score}%</div>
+                    </div>
+                </div>
+            `;
+        }
+        html += '</div>';
+        container.innerHTML = html;
+        container.querySelectorAll('.product-card').forEach(card => {
+            card.addEventListener('click', () => showDetailView(card.dataset.id));
+        });
     }
 
-    // Comparison
+    // ----- Comparison -----
     async function compareProducts() {
         const selected = Array.from(document.querySelectorAll('.product-select:checked')).map(cb => cb.value);
         if (selected.length < 2 || selected.length > 3) {
@@ -500,7 +629,7 @@
         document.getElementById('compareModal').classList.remove('hidden');
     }
 
-    // Detail view (kept as in original, but with fixed pagination)
+    // ----- Detail view with voting -----
     async function fetchProductDetails(productId) {
         const res = await fetch(`${API_BASE}/product/${productId}`);
         if (!res.ok) throw new Error('Product not found');
@@ -521,6 +650,20 @@
             const post = data[0].data.children[0].data;
             return { title: post.title, body: post.selftext, subreddit: post.subreddit, score: post.score };
         } catch(e) { return null; }
+    }
+
+    async function voteReview(reviewId, voteValue, element) {
+        try {
+            const res = await fetch(`${API_BASE}/vote`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ review_id: reviewId, vote: voteValue })
+            });
+            const result = await res.json();
+            if (result.new_score !== undefined) {
+                element.querySelector('.helpful-score').innerText = `(${result.new_score})`;
+            }
+        } catch (err) { console.error('Vote error', err); }
     }
 
     function isTrending(reviews) {
@@ -581,7 +724,14 @@
             const reviewId = `rev_${rev.id}`;
             reviewsHtml += `
                 <div class="review-card">
-                    <div class="review-meta">🧑‍💻 r/${escapeHtml(rev.subreddit || 'reddit')} • ${new Date(rev.created_at).toLocaleDateString()} <a href="${redditUrl}" target="_blank">🔗 View on Reddit</a></div>
+                    <div class="review-meta">
+                        <span>🧑‍💻 r/${escapeHtml(rev.subreddit || 'reddit')} • ${new Date(rev.created_at).toLocaleDateString()} <a href="${redditUrl}" target="_blank">🔗 View on Reddit</a></span>
+                        <div class="vote-buttons">
+                            <button class="vote-btn" data-review-id="${rev.id}" data-vote="1">👍</button>
+                            <button class="vote-btn" data-review-id="${rev.id}" data-vote="-1">👎</button>
+                            <span class="helpful-score">(${rev.helpful_score || 0})</span>
+                        </div>
+                    </div>
                     <div id="${reviewId}" class="review-text">${escapeHtml(shortText)}</div>
                     ${rev.verbatim.length > 300 ? `<button class="show-more-btn" data-id="${reviewId}" data-full="${escapeHtml(fullText)}" data-short="${escapeHtml(shortText)}">Show more</button>` : ''}
                 </div>
@@ -602,6 +752,16 @@
         `;
         document.getElementById('detailContent').innerHTML = html;
         loadTrendChart(product.id);
+        // Attach vote buttons
+        document.querySelectorAll('.vote-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const reviewId = btn.dataset.reviewId;
+                const vote = parseInt(btn.dataset.vote);
+                voteReview(reviewId, vote, btn.parentElement);
+            });
+        });
+        // Show more / less for long reviews
         document.querySelectorAll('.show-more-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const targetId = btn.dataset.id;
@@ -692,7 +852,7 @@
         loadGrid();
     }
 
-    // Event listeners
+    // ----- Event listeners and init -----
     document.getElementById('runBtn').addEventListener('click', () => { loadGrid(); });
     document.getElementById('backToGridBtn').addEventListener('click', showGridView);
     document.getElementById('compareBtn').addEventListener('click', compareProducts);
@@ -703,6 +863,16 @@
         updateUsecaseButtons();
         loadGrid();
     });
+
+    // Start periodic refresh for activity feed (every 60 seconds)
+    loadRecentActivity();
+    loadReviewOfWeek();
+    loadFilters();
+    if (activityInterval) clearInterval(activityInterval);
+    activityInterval = setInterval(() => {
+        loadRecentActivity();
+        loadReviewOfWeek();
+    }, 60000);
 
     updateUsecaseButtons();
     loadGrid();
