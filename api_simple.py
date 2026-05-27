@@ -6,6 +6,7 @@ import os
 import logging
 import json
 import redis
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from typing import Optional
@@ -14,7 +15,7 @@ load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-REDIS_URL = os.getenv("REDIS_URL")  # Railway sets this automatically
+REDIS_URL = os.getenv("REDIS_URL")
 
 # Redis setup (cache for 15 minutes)
 redis_client = None
@@ -22,13 +23,10 @@ if REDIS_URL:
     try:
         redis_client = redis.from_url(REDIS_URL, decode_responses=True)
         redis_client.ping()
-        logging.info("Redis connected successfully")
+        logging.info("Redis connected")
     except Exception as e:
-        logging.warning(f"Redis connection failed: {e}. Caching disabled.")
-else:
-    logging.warning("REDIS_URL not set. Caching disabled.")
-
-CACHE_TTL = 900  # 15 seconds? no, 15 minutes = 900 seconds
+        logging.warning(f"Redis error: {e}")
+CACHE_TTL = 900
 
 def cache_get(key):
     if redis_client:
@@ -65,7 +63,7 @@ def supabase_get(endpoint, params=None):
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}"
     }
-    resp = requests.get(url, headers=headers, params=params)
+    resp = requests.get(url, headers=headers, params=params, timeout=30)
     if resp.status_code != 200:
         logger.warning(f"Supabase error {resp.status_code} for {endpoint}: {resp.text}")
         return []
@@ -78,77 +76,122 @@ def supabase_post(endpoint, data):
         "Authorization": f"Bearer {SUPABASE_KEY}",
         "Content-Type": "application/json"
     }
-    resp = requests.post(url, headers=headers, json=data)
+    resp = requests.post(url, headers=headers, json=data, timeout=30)
     if resp.status_code != 201:
         logger.warning(f"Supabase POST error {resp.status_code} for {endpoint}: {resp.text}")
+        return None
+    return resp
+
+def supabase_patch(endpoint, data):
+    url = f"{SUPABASE_URL}/rest/v1/{endpoint}"
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json"
+    }
+    resp = requests.patch(url, headers=headers, json=data, timeout=30)
+    if resp.status_code not in (200, 204):
+        logger.warning(f"Supabase PATCH error {resp.status_code} for {endpoint}: {resp.text}")
         return None
     return resp
 
 # ---------- Root ----------
 @app.get("/")
 def root():
-    return {"message": "RedditRecs API is running (Redis caching enabled)", "endpoints": ["/rankings", "/product/{product_id}", "/search", "/brands", "/categories", "/usecase/{case}", "/compare", "/trend/{product_id}", "/user_review"]}
+    return {"message": "RedditRecs API is running", "endpoints": ["/rankings", "/product/{product_id}", "/search", "/brands", "/categories", "/usecase/{case}", "/compare", "/trend/{product_id}", "/user_review", "/filters", "/recent_activity", "/vote", "/review_of_week"]}
 
-# ---------- Rankings (cached) ----------
+# ---------- Rankings with category, subreddit, pagination, AND spec filters ----------
 @app.get("/rankings")
-def get_rankings(limit: int = 20, offset: int = 0, category: str = None, subreddit: str = None):
-    cache_key = f"rankings:{limit}:{offset}:{category or ''}:{subreddit or ''}"
-    cached = cache_get(cache_key)
-    if cached is not None:
-        logger.info(f"Cache HIT for {cache_key}")
-        return cached
-    logger.info(f"Cache MISS for {cache_key}")
-    if category:
-        product_params = {"category": f"eq.{category}", "select": "id"}
-        products_in_cat = supabase_get("products", params=product_params)
-        if not products_in_cat:
+def get_rankings(
+    request: Request,
+    limit: int = 20,
+    offset: int = 0,
+    category: str = None,
+    subreddit: str = None,
+    spec_room_size: str = None,
+    spec_noise_level: str = None,
+    spec_energy_efficiency: str = None,
+    spec_filter_type: str = None
+):
+    # Build product ID list based on spec filters
+    product_ids = None
+    spec_filters = {}
+    if spec_room_size:
+        spec_filters["room_size"] = spec_room_size
+    if spec_noise_level:
+        spec_filters["noise_level"] = spec_noise_level
+    if spec_energy_efficiency:
+        spec_filters["energy_efficiency"] = spec_energy_efficiency
+    if spec_filter_type:
+        spec_filters["filter_type"] = spec_filter_type
+
+    if spec_filters:
+        # Fetch all products with specs and filter client‑side (or use JSONB query)
+        all_products = supabase_get("products", params={"select": "id,specs"})
+        matched_ids = []
+        for p in all_products:
+            specs = p.get("specs", {})
+            match = True
+            for key, val in spec_filters.items():
+                if specs.get(key) != val:
+                    match = False
+                    break
+            if match:
+                matched_ids.append(p["id"])
+        if not matched_ids:
             return {"rankings": []}
-        product_ids = [p["id"] for p in products_in_cat]
-        ranking_params = {"product_id": f"in.({','.join(product_ids)})", "order": "rank.asc", "limit": limit, "offset": offset}
-    else:
-        ranking_params = {"order": "rank.asc", "limit": limit, "offset": offset}
-    
+        product_ids = matched_ids
+
+    # Category filter
+    if category:
+        cat_products = supabase_get("products", params={"category": f"eq.{category}", "select": "id"})
+        if not cat_products:
+            return {"rankings": []}
+        cat_ids = [p["id"] for p in cat_products]
+        if product_ids:
+            product_ids = list(set(product_ids) & set(cat_ids))
+        else:
+            product_ids = cat_ids
+        if not product_ids:
+            return {"rankings": []}
+
+    ranking_params = {"order": "rank.asc", "limit": limit, "offset": offset}
+    if product_ids:
+        ranking_params["product_id"] = f"in.({','.join(product_ids)})"
+
     if subreddit:
         reviews = supabase_get("reviews", params={"select": "product_id", "subreddit": f"eq.{subreddit}"})
         if not reviews:
             return {"rankings": []}
-        product_ids_sub = list(set([r["product_id"] for r in reviews]))
-        if category:
-            product_ids = list(set(product_ids) & set(product_ids_sub))
+        sub_ids = list(set([r["product_id"] for r in reviews]))
+        if product_ids:
+            product_ids = list(set(product_ids) & set(sub_ids))
         else:
-            product_ids = product_ids_sub
+            product_ids = sub_ids
         if not product_ids:
             return {"rankings": []}
         ranking_params["product_id"] = f"in.({','.join(product_ids)})"
-    
+
     rankings = supabase_get("rankings", params=ranking_params)
     if not rankings:
         return {"rankings": []}
-    
-    product_ids = [r["product_id"] for r in rankings]
-    products = supabase_get("products", params={"id": f"in.({','.join(product_ids)})"})
+
+    # Fetch product details
+    all_product_ids = [r["product_id"] for r in rankings]
+    products = supabase_get("products", params={"id": f"in.({','.join(all_product_ids)})"})
     product_map = {p["id"]: p for p in products}
     for r in rankings:
         r["product"] = product_map.get(r["product_id"], {})
-    response = {"rankings": rankings, "limit": limit, "offset": offset}
-    cache_set(cache_key, response)
-    return response
+    return {"rankings": rankings, "limit": limit, "offset": offset}
 
-# ---------- Product details (cached) ----------
+# ---------- Product details (includes aspects, specs, percentile) ----------
 @app.get("/product/{product_id}")
 def product_details(product_id: str):
-    cache_key = f"product:{product_id}"
-    cached = cache_get(cache_key)
-    if cached is not None:
-        logger.info(f"Cache HIT for {cache_key}")
-        return cached
-    logger.info(f"Cache MISS for {cache_key}")
     product = supabase_get("products", params={"id": f"eq.{product_id}"})
     if not product:
         return {"error": "Product not found"}
     reviews = supabase_get("reviews", params={"product_id": f"eq.{product_id}", "order": "created_at.desc", "limit": 10})
     aspects = supabase_get("product_aspects", params={"product_id": f"eq.{product_id}"})
-    
     # Compute percentile
     all_scores = supabase_get("rankings", params={"select": "sentiment_score", "order": "sentiment_score.asc"})
     product_rankings = supabase_get("rankings", params={"product_id": f"eq.{product_id}"})
@@ -160,19 +203,11 @@ def product_details(product_id: str):
     else:
         percentile = 0
     product[0]["reddit_percentile"] = percentile
-    response = {"product": product[0], "reviews": reviews, "aspects": aspects}
-    cache_set(cache_key, response)
-    return response
+    return {"product": product[0], "reviews": reviews, "aspects": aspects}
 
-# ---------- Search (cached) ----------
+# ---------- Search ----------
 @app.get("/search")
 def search_products(q: str = Query(..., min_length=2)):
-    cache_key = f"search:{q}"
-    cached = cache_get(cache_key)
-    if cached is not None:
-        logger.info(f"Cache HIT for {cache_key}")
-        return cached
-    logger.info(f"Cache MISS for {cache_key}")
     params = {
         "or": f"(brand.ilike.*{q}*,model_name.ilike.*{q}*)",
         "select": "id,brand,model_name,category"
@@ -184,19 +219,11 @@ def search_products(q: str = Query(..., min_length=2)):
         rank_map = {r["product_id"]: r for r in rankings}
         for p in results:
             p["ranking"] = rank_map.get(p["id"], {})
-    response = {"query": q, "results": results}
-    cache_set(cache_key, response)
-    return response
+    return {"query": q, "results": results}
 
-# ---------- Brand stats (cached) ----------
+# ---------- Brand stats ----------
 @app.get("/brands")
 def get_brands(category: Optional[str] = None):
-    cache_key = f"brands:{category or ''}"
-    cached = cache_get(cache_key)
-    if cached is not None:
-        logger.info(f"Cache HIT for {cache_key}")
-        return cached
-    logger.info(f"Cache MISS for {cache_key}")
     if category:
         products = supabase_get("products", params={"category": f"eq.{category}", "select": "id,brand"})
         if not products:
@@ -233,29 +260,19 @@ def get_brands(category: Optional[str] = None):
             "total_reviews": total
         })
     result.sort(key=lambda x: x["positive_percent"], reverse=True)
-    response = {"brands": result}
-    cache_set(cache_key, response)
-    return response
+    return {"brands": result}
 
-# ---------- Categories (cached) ----------
+# ---------- Categories ----------
 @app.get("/categories")
 def get_categories():
-    cache_key = "categories"
-    cached = cache_get(cache_key)
-    if cached is not None:
-        logger.info(f"Cache HIT for {cache_key}")
-        return cached
-    logger.info(f"Cache MISS for {cache_key}")
     products = supabase_get("products", params={"select": "category"})
     categories = set()
     for p in products:
         if p.get("category"):
             categories.add(p["category"])
-    response = {"categories": sorted(list(categories))}
-    cache_set(cache_key, response)
-    return response
+    return {"categories": sorted(list(categories))}
 
-# ---------- Use-case (not cached, can be changed later) ----------
+# ---------- Use-case ----------
 USECASE_KEYWORDS = {
     "smoke": ["smoke", "cigarette", "cannabis", "odor", "smell", "cooking smell", "wildfire"],
     "pets": ["pet", "dog", "cat", "dander", "fur", "hair", "allergy", "shedding"],
@@ -309,7 +326,7 @@ def get_usecase(case: str, limit: int = 10):
     else:
         return {"usecase": case, "recommendations": []}
 
-# ---------- Comparison (not cached because ids vary) ----------
+# ---------- Comparison ----------
 @app.get("/compare")
 def compare_products(ids: str = Query(...)):
     product_ids = [pid.strip() for pid in ids.split(",")]
@@ -339,19 +356,13 @@ def compare_products(ids: str = Query(...)):
         })
     return {"products": products_data}
 
-# ---------- Sentiment Trend (cached, but short TTL) ----------
+# ---------- Sentiment Trend ----------
 @app.get("/trend/{product_id}")
 def get_trend(product_id: str, months: int = 12):
-    cache_key = f"trend:{product_id}:{months}"
-    cached = cache_get(cache_key)
-    if cached is not None:
-        return cached
     history = supabase_get("sentiment_history", params={"product_id": f"eq.{product_id}", "order": "date.asc", "limit": months})
-    response = {"product_id": product_id, "history": history}
-    cache_set(cache_key, response, ttl=3600)  # 1 hour cache for trends
-    return response
+    return {"product_id": product_id, "history": history}
 
-# ---------- User review submission (no cache) ----------
+# ---------- User review submission (unchanged) ----------
 class UserReview(BaseModel):
     product_id: str
     username: str
@@ -368,14 +379,92 @@ def submit_user_review(review: UserReview):
     resp = supabase_post("user_reviews", data)
     if resp is None:
         return {"error": "Failed to submit review"}
-    # Invalidate relevant caches
-    cache_keys_to_invalidate = [f"rankings:*", f"product:{review.product_id}", f"brands:*", f"categories", f"search:*"]
-    for key_pattern in cache_keys_to_invalidate:
-        # For simplicity, delete keys by pattern (Redis doesn't support pattern delete natively, but we can iterate)
-        if redis_client:
-            for key in redis_client.scan_iter(key_pattern):
-                redis_client.delete(key)
+    # Invalidate relevant caches (optional)
+    if redis_client:
+        for key in redis_client.scan_iter("rankings:*"):
+            redis_client.delete(key)
     return {"message": "Review submitted, awaiting verification"}
+
+# ---------- NEW: Dynamic filters ----------
+@app.get("/filters")
+def get_filters():
+    cache_key = "filters"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return cached
+    products = supabase_get("products", params={"select": "specs"})
+    filters = {
+        "room_size": set(),
+        "noise_level": set(),
+        "energy_efficiency": set(),
+        "filter_type": set()
+    }
+    for p in products:
+        specs = p.get("specs", {})
+        for key in filters.keys():
+            val = specs.get(key)
+            if val and isinstance(val, str):
+                filters[key].add(val.strip())
+    result = {k: sorted(list(v)) for k, v in filters.items()}
+    cache_set(cache_key, result, ttl=3600)  # cache for 1 hour
+    return result
+
+# ---------- NEW: Recent activity feed ----------
+@app.get("/recent_activity")
+def recent_activity(limit: int = 5):
+    reviews = supabase_get("reviews", params={"order": "created_at.desc", "limit": limit, "select": "id,verbatim,created_at,subreddit,product_id,helpful_score"})
+    if not reviews:
+        return {"activity": []}
+    product_ids = list(set([r["product_id"] for r in reviews]))
+    products = supabase_get("products", params={"id": f"in.({','.join(product_ids)})", "select": "id,brand,model_name"})
+    product_map = {p["id"]: p for p in products}
+    for r in reviews:
+        r["product"] = product_map.get(r["product_id"], {})
+        r["snippet"] = (r["verbatim"][:120] + "...") if len(r["verbatim"]) > 120 else r["verbatim"]
+    return {"activity": reviews}
+
+# ---------- NEW: User voting (upvote/downvote) ----------
+@app.post("/vote")
+async def vote_review(request: Request):
+    try:
+        data = await request.json()
+    except:
+        return {"error": "Invalid JSON"}
+    review_id = data.get("review_id")
+    vote = data.get("vote")  # 1 or -1
+    if not review_id or vote not in (1, -1):
+        return {"error": "Invalid data"}
+    client_ip = request.client.host
+    # Check existing vote
+    existing = supabase_get("user_votes", params={"review_id": f"eq.{review_id}", "user_ip": f"eq.{client_ip}"})
+    if existing:
+        supabase_patch(f"user_votes?id=eq.{existing[0]['id']}", {"vote": vote})
+    else:
+        supabase_post("user_votes", {"review_id": review_id, "user_ip": client_ip, "vote": vote})
+    # Get updated helpful_score
+    updated = supabase_get("reviews", params={"id": f"eq.{review_id}", "select": "helpful_score"})
+    new_score = updated[0]["helpful_score"] if updated else 0
+    return {"message": "Vote recorded", "new_score": new_score}
+
+# ---------- NEW: Review of the week ----------
+@app.get("/review_of_week")
+def review_of_week():
+    today = datetime.now().date()
+    start_of_week = today - timedelta(days=today.weekday())  # Monday
+    week_entry = supabase_get("weekly_review", params={"week_start": f"eq.{start_of_week.isoformat()}", "select": "review_id"})
+    if not week_entry:
+        return {"review": None}
+    review = supabase_get("reviews", params={"id": f"eq.{week_entry[0]['review_id']}", "select": "*,product_id"})
+    if not review:
+        return {"review": None}
+    product = supabase_get("products", params={"id": f"eq.{review[0]['product_id']}", "select": "brand,model_name"})
+    if product:
+        review[0]["product"] = product[0]
+    else:
+        review[0]["product"] = {}
+    # Add snippet
+    review[0]["snippet"] = (review[0]["verbatim"][:200] + "...") if len(review[0]["verbatim"]) > 200 else review[0]["verbatim"]
+    return {"review": review[0]}
 
 # ---------- Debug routes ----------
 @app.get("/debug/routes")
@@ -387,26 +476,6 @@ def list_routes():
             "methods": list(route.methods) if hasattr(route, "methods") else []
         })
     return {"routes": routes}
-
-# ---------- Embeddable Widget ----------
-@app.get("/widget.html")
-async def get_widget():
-    try:
-        # Get the directory where api_simple.py is located
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        widget_path = os.path.join(current_dir, "widget.html")
-
-        with open(widget_path, "r", encoding="utf-8") as f:
-            content = f.read()
-        return HTMLResponse(
-            content,
-            headers={
-                "Content-Security-Policy": "frame-ancestors 'self' https://airlucent.com https://www.airlucent.com",
-                "X-Frame-Options": "SAMEORIGIN"
-            }
-        )
-    except FileNotFoundError:
-        return {"error": f"Widget file not found at {widget_path}"}
 
 if __name__ == "__main__":
     import uvicorn
