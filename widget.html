@@ -72,7 +72,7 @@
         .compare-bar { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 2rem; background: var(--filter-bg); border-bottom: 1px solid var(--border); }
         .best-for-you { padding: 1rem 2rem; background: var(--filter-bg); border-bottom: 1px solid var(--border); }
         .usecase-buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
-        .usecase-btn { background: var(--btn-bg); color: white; padding: 0.3rem 0.8rem; font-size: 0.8rem; }
+        .usecase-btn { background: var(--btn-bg); color: white; padding: 0.3rem 0.8rem; font-size: 0.8rem; border-radius: 40px; cursor: pointer; border: none; }
         .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 2rem; padding: 2rem; animation: fadeIn 0.4s ease; }
         .product-card { background: var(--card-bg); border-radius: 28px; overflow: hidden; cursor: pointer; transition: all 0.3s; border: 1px solid var(--border); position: relative; }
         .product-card:hover { transform: translateY(-6px); box-shadow: 0 20px 35px -12px rgba(0,0,0,0.2); }
@@ -136,17 +136,25 @@
                     <option value="air-purifier">Air Purifiers</option>
                     <option value="humidifier">Humidifiers</option>
                     <option value="air-conditioner">Portable ACs</option>
+                    <option value="smart-thermostat">Smart Thermostats</option>
+                    <option value="air-quality-monitor">Air Quality Monitors</option>
+                    <option value="whole-house-dehumidifier">Whole‑House Dehumidifiers</option>
+                    <option value="portable-dehumidifier">Portable Dehumidifiers</option>
+                    <option value="ventilation-fan-hrv-erv">Ventilation Fans (HRV/ERV)</option>
+                    <option value="smart-vent">Smart Vents</option>
+                    <option value="air-filter">Air Filters</option>
+                    <option value="co-detector">CO Detectors</option>
+                    <option value="ceiling-fan">Ceiling Fans</option>
+                    <option value="space-heater">Space Heaters</option>
+                    <option value="ductless-mini-split">Ductless Mini‑Splits</option>
+                    <option value="evaporative-cooler">Evaporative Coolers</option>
+                    <option value="uv-air-purifier">UV Air Purifiers</option>
                 </select>
             </div>
             <div class="filter-group">
                 <label>🎯 Use Case</label>
                 <select id="usecaseSelect">
                     <option value="">Any</option>
-                    <option value="smoke">Smoke & Odor</option>
-                    <option value="pets">Pets & Dander</option>
-                    <option value="allergies">Allergies & Dust</option>
-                    <option value="quiet">Quiet / Bedroom</option>
-                    <option value="large-room">Large Room</option>
                 </select>
             </div>
             <div class="filter-group">
@@ -160,12 +168,8 @@
         </div>
         <div class="best-for-you">
             <strong>🤔 Best for you?</strong> <span style="font-size:0.8rem;">Select your main concern:</span>
-            <div class="usecase-buttons">
-                <button class="usecase-btn" data-usecase="smoke">🚬 Smoke & Odor</button>
-                <button class="usecase-btn" data-usecase="pets">🐾 Pets & Dander</button>
-                <button class="usecase-btn" data-usecase="allergies">🤧 Allergies & Dust</button>
-                <button class="usecase-btn" data-usecase="quiet">🔇 Quiet / Bedroom</button>
-                <button class="usecase-btn" data-usecase="large-room">🏠 Large Room</button>
+            <div id="usecaseButtonsContainer" class="usecase-buttons">
+                <!-- Buttons will be populated dynamically based on selected category -->
             </div>
             <div id="personalisedResults" style="margin-top: 1rem;"></div>
         </div>
@@ -202,6 +206,124 @@
     let chartInstance = null;
     const TRUSTED_SUBREDDITS = ['BuyItForLife', 'HomeImprovement', 'AirPurifiers', 'HVAC', 'Home', 'GoodValue', 'BIFL'];
 
+    // Mapping of categories to use-case buttons (label and API usecase value)
+    const useCaseMap = {
+        'air-purifier': [
+            { label: '🚬 Smoke & Odor', value: 'smoke' },
+            { label: '🐾 Pets & Dander', value: 'pets' },
+            { label: '🤧 Allergies & Dust', value: 'allergies' },
+            { label: '🔇 Quiet / Bedroom', value: 'quiet' },
+            { label: '🏠 Large Room', value: 'large-room' }
+        ],
+        'humidifier': [
+            { label: '💧 Dry Air', value: 'dry-air' },
+            { label: '🏠 Large Room', value: 'large-room' },
+            { label: '👶 Baby / Nursery', value: 'baby' },
+            { label: '🔇 Quiet', value: 'quiet' },
+            { label: '🤧 Allergies', value: 'allergies' }
+        ],
+        'air-conditioner': [
+            { label: '❄️ Cooling', value: 'cooling' },
+            { label: '⚡ Energy Efficiency', value: 'energy-efficiency' },
+            { label: '🔇 Quiet', value: 'quiet' },
+            { label: '🏠 Large Room', value: 'large-room' },
+            { label: '🎒 Portable', value: 'portable' }
+        ],
+        'smart-thermostat': [
+            { label: '💵 Energy Saving', value: 'energy-saving' },
+            { label: '📱 Remote Control', value: 'remote-control' },
+            { label: '🧠 Learning', value: 'learning' },
+            { label: '🎤 Voice Control', value: 'voice-control' },
+            { label: '🏠 Multi‑Zone', value: 'multi-zone' }
+        ],
+        'air-quality-monitor': [
+            { label: '🌫️ CO₂', value: 'co2' },
+            { label: '💨 PM2.5', value: 'pm25' },
+            { label: '🧪 VOC', value: 'voc' },
+            { label: '☢️ Radon', value: 'radon' },
+            { label: '🏠 Smart Home', value: 'smart-home' }
+        ],
+        'whole-house-dehumidifier': [
+            { label: '🏚️ Basement', value: 'basement' },
+            { label: '🏠 Large Space', value: 'large-space' },
+            { label: '🔇 Quiet', value: 'quiet' },
+            { label: '⚡ Energy Efficient', value: 'energy-efficiency' },
+            { label: '📦 Portable', value: 'portable' }
+        ],
+        'portable-dehumidifier': [
+            { label: '🏚️ Basement', value: 'basement' },
+            { label: '🏠 Large Space', value: 'large-space' },
+            { label: '🔇 Quiet', value: 'quiet' },
+            { label: '⚡ Energy Efficient', value: 'energy-efficiency' },
+            { label: '📦 Portable', value: 'portable' }
+        ],
+        'ventilation-fan-hrv-erv': [
+            { label: '🔇 Quiet', value: 'quiet' },
+            { label: '🔄 Energy Recovery', value: 'energy-recovery' },
+            { label: '🌬️ Fresh Air', value: 'fresh-air' },
+            { label: '💧 Humidity Control', value: 'humidity-control' },
+            { label: '📱 Smart Control', value: 'smart-control' }
+        ],
+        'smart-vent': [
+            { label: '⚖️ Room Balancing', value: 'room-balancing' },
+            { label: '🏠 Smart Home', value: 'smart-home' },
+            { label: '💵 Energy Savings', value: 'energy-savings' },
+            { label: '🌡️ Zoned Comfort', value: 'zoned-comfort' },
+            { label: '📱 Remote Control', value: 'remote-control' }
+        ],
+        'air-filter': [
+            { label: '📊 MERV Rating', value: 'merv' },
+            { label: '💧 Washable', value: 'washable' },
+            { label: '🦠 HEPA', value: 'hepa' },
+            { label: '🌬️ Low Pressure Drop', value: 'low-pressure-drop' },
+            { label: '🤧 Allergy', value: 'allergy' }
+        ],
+        'co-detector': [
+            { label: '🔋 Battery Life', value: 'battery-life' },
+            { label: '📱 Smart Alerts', value: 'smart-alerts' },
+            { label: '🗣️ Voice Alerts', value: 'voice-alerts' },
+            { label: '📦 Portable', value: 'portable' },
+            { label: '☣️ Carbon Monoxide', value: 'carbon-monoxide' }
+        ],
+        'ceiling-fan': [
+            { label: '🔇 Quiet', value: 'quiet' },
+            { label: '⚡ DC Motor', value: 'dc-motor' },
+            { label: '📱 Remote Control', value: 'remote-control' },
+            { label: '🏠 Smart Home', value: 'smart-home' },
+            { label: '🌀 Large Blades', value: 'large-blades' }
+        ],
+        'space-heater': [
+            { label: '📦 Portable', value: 'portable' },
+            { label: '⚡ Energy Efficient', value: 'energy-efficiency' },
+            { label: '🔇 Quiet', value: 'quiet' },
+            { label: '🛡️ Safety Features', value: 'safety' },
+            { label: '📱 Smart Control', value: 'smart-control' }
+        ],
+        'ductless-mini-split': [
+            { label: '🔄 Inverter', value: 'inverter' },
+            { label: '🔇 Quiet', value: 'quiet' },
+            { label: '⚡ Efficiency', value: 'efficiency' },
+            { label: '📱 Remote Control', value: 'remote-control' },
+            { label: '❄️🔥 Heating/Cooling', value: 'heating-cooling' }
+        ],
+        'evaporative-cooler': [
+            { label: '📦 Portable', value: 'portable' },
+            { label: '⚡ Energy Efficient', value: 'energy-efficiency' },
+            { label: '💧 Water Tank Size', value: 'water-tank' },
+            { label: '🌬️ Cooling Capacity', value: 'cooling-capacity' },
+            { label: '🏜️ Low Humidity', value: 'low-humidity' }
+        ],
+        'uv-air-purifier': [
+            { label: '🦠 Germicidal', value: 'germicidal' },
+            { label: '🏠 HVAC Installation', value: 'hvac-installation' },
+            { label: '💡 Lamp Life', value: 'lamp-life' },
+            { label: '🔇 Quiet', value: 'quiet' },
+            { label: '🏢 Whole‑House', value: 'whole-house' }
+        ]
+    };
+
+    const defaultUseCases = [{ label: '✨ General recommendations', value: 'general' }];
+
     // Dark mode toggle
     const themeToggle = document.getElementById('themeToggle');
     themeToggle.addEventListener('click', () => {
@@ -213,6 +335,22 @@
     function escapeHtml(str) {
         if (!str) return '';
         return str.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m] || m));
+    }
+
+    // Update use-case buttons based on selected category
+    function updateUsecaseButtons() {
+        const category = document.getElementById('categorySelect').value;
+        const container = document.getElementById('usecaseButtonsContainer');
+        let useCases = useCaseMap[category] || defaultUseCases;
+        container.innerHTML = '';
+        useCases.forEach(uc => {
+            const btn = document.createElement('button');
+            btn.className = 'usecase-btn';
+            btn.innerText = uc.label;
+            btn.dataset.usecase = uc.value;
+            btn.addEventListener('click', () => showPersonalised(uc.value));
+            container.appendChild(btn);
+        });
     }
 
     // Trending badge: >2 reviews in last 7 days
@@ -264,6 +402,7 @@
     }
 
     async function fetchUsecase(usecase) {
+        if (!usecase || usecase === 'general') return [];
         const res = await fetch(`${API_BASE}/usecase/${usecase}?limit=20`);
         if (!res.ok) return [];
         const data = await res.json();
@@ -362,7 +501,7 @@
     async function loadMore() {
         currentOffset += currentLimit;
         let rankings;
-        if (currentUsecase) {
+        if (currentUsecase && currentUsecase !== 'general') {
             const recs = await fetchUsecase(currentUsecase);
             const start = currentOffset;
             const end = start + currentLimit;
@@ -385,7 +524,7 @@
         document.getElementById('productsContainer').innerHTML = '<div class="loading">✨ Loading...</div>';
         document.getElementById('loadMoreBtn').style.display = 'block';
         try {
-            if (currentUsecase) {
+            if (currentUsecase && currentUsecase !== 'general') {
                 const recs = await fetchUsecase(currentUsecase);
                 const initial = recs.slice(0, currentLimit);
                 renderProducts(initial, false);
@@ -413,13 +552,13 @@
         if (data.error) { alert(data.error); return; }
         let html = '<h3>Product Comparison</h3><table><th>Feature</th>';
         for (let p of data.products) html += `<th>${escapeHtml(p.brand)} ${escapeHtml(p.model)}</th>`;
-        html += '</tr>';
+        html += '<tr>';
         html += `<tr><td>Sentiment Score</td>${data.products.map(p => `<td>${p.sentiment_score ? Math.round(p.sentiment_score*100) + '%' : 'N/A'}</td>`).join('')}</tr>`;
         html += `<tr><td>Reviews (pos/neg)</td>${data.products.map(p => `<td>${p.positive_count} / ${p.negative_count}</td>`).join('')}</tr>`;
         html += `<tr><td>Top Pros</td>${data.products.map(p => `<td>${p.pros.map(pr => `${pr.aspect} (${pr.count})`).join('<br>') || 'None'}</td>`).join('')}</tr>`;
-        html += `<tr><td>Top Cons</td>${data.products.map(p => `<td>${p.cons.map(cn => `${cn.aspect} (${cn.count})`).join('<br>') || 'None'}</td>`).join('')}</tr>`;
+        html += `<tr><td>Top Cons</td>${data.products.map(p => `<td>${p.cons.map(cn => `${cn.aspect} (${cn.count})`).join('<br>') || 'None'}</td>`).join('')}<tr>`;
         html += `<tr><td>Subreddits</td>${data.products.map(p => `<td>${p.subreddits.join(', ') || 'General'}</td>`).join('')}</tr>`;
-        html += `｜｜DSML｜｜<td>Product Page</td>${data.products.map(p => `<td><a href="#" onclick="showDetailView('${p.id}'); return false;">View details</a></td>`).join('')}</tr>`;
+        html += `<tr><td>Product Page</td>${data.products.map(p => `<td><a href="#" onclick="showDetailView('${p.id}'); return false;">View details</a></td>`).join('')}</tr>`;
         html += '</table>';
         document.getElementById('comparisonTable').innerHTML = html;
         document.getElementById('compareModal').classList.remove('hidden');
@@ -567,10 +706,12 @@
     document.getElementById('loadMoreBtn').addEventListener('click', loadMore);
     document.getElementById('closeModal').addEventListener('click', () => document.getElementById('compareModal').classList.add('hidden'));
     window.addEventListener('click', (e) => { if (e.target === document.getElementById('compareModal')) document.getElementById('compareModal').classList.add('hidden'); });
-    document.querySelectorAll('.usecase-btn').forEach(btn => {
-        btn.addEventListener('click', () => showPersonalised(btn.dataset.usecase));
+    document.getElementById('categorySelect').addEventListener('change', () => {
+        updateUsecaseButtons();
+        loadGrid(); // also reload grid when category changes
     });
-
+    // Initialise use-case buttons based on default category
+    updateUsecaseButtons();
     loadGrid();
 </script>
 </body>
