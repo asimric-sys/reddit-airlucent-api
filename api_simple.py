@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Query, Request
+from fastapi import FastAPI, Query, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 import requests
@@ -16,6 +16,19 @@ load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 REDIS_URL = os.getenv("REDIS_URL")
+
+# ---------- Security configuration ----------
+# Set ADMIN_API_KEY in your Railway environment variables.
+# Use a strong random string (32+ characters), e.g.:
+#   python -c "import secrets; print(secrets.token_hex(32))"
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "")
+
+# Endpoints that do NOT require an API key.
+PUBLIC_PATHS = {"/", "/widget.html", "/debug/routes"}
+
+# Allowed CORS origin(s). Set ALLOWED_ORIGIN in Railway to your WordPress domain,
+# e.g. "https://www.example.com". Defaults to localhost for local development.
+ALLOWED_ORIGIN = os.getenv("ALLOWED_ORIGIN", "http://localhost")
 
 # Redis setup (cache for 15 minutes)
 redis_client = None
@@ -44,12 +57,31 @@ logger = logging.getLogger("uvicorn")
 
 app = FastAPI()
 
+# ---------- CORS middleware ----------
+# Only the configured WordPress domain (ALLOWED_ORIGIN) may call this API.
+# GET and POST are the only permitted methods; X-API-Key must be allowed so
+# browsers can include it in pre-flight and actual requests.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[ALLOWED_ORIGIN],
+    allow_methods=["GET", "POST"],
+    allow_headers=["X-API-Key", "Content-Type"],
 )
+
+# ---------- API key authentication middleware ----------
+# All routes except PUBLIC_PATHS require a valid X-API-Key header.
+# The expected key is read from the ADMIN_API_KEY environment variable.
+@app.middleware("http")
+async def require_api_key(request: Request, call_next):
+    if request.url.path not in PUBLIC_PATHS:
+        api_key = request.headers.get("X-API-Key", "")
+        if not ADMIN_API_KEY:
+            # Fail closed: if no key is configured, block all protected routes.
+            raise HTTPException(status_code=403, detail="API key not configured on server")
+        if api_key != ADMIN_API_KEY:
+            raise HTTPException(status_code=403, detail="Invalid or missing API key")
+    response = await call_next(request)
+    return response
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
