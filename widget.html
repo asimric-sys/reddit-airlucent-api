@@ -242,6 +242,8 @@
 
 <script>
     const API_BASE = 'https://reddit-airlucent-api-production.up.railway.app';
+    // Set this to the value of ADMIN_API_KEY from your Railway environment variables.
+    const API_KEY = '';
     const LIMIT = 12;
     let currentOffset = 0;
     let currentCategory = '';
@@ -400,7 +402,7 @@
 
     // ----- Filters sidebar -----
     async function loadFilters() {
-        const res = await fetch(`${API_BASE}/filters`);
+        const res = await fetch(`${API_BASE}/filters`, { headers: { "X-API-Key": API_KEY } });
         const filters = await res.json();
         const container = document.getElementById('specFilters');
         container.innerHTML = '';
@@ -438,7 +440,7 @@
     // ----- Recent activity feed (auto‑refresh) -----
     async function loadRecentActivity() {
         try {
-            const res = await fetch(`${API_BASE}/recent_activity?limit=5`);
+            const res = await fetch(`${API_BASE}/recent_activity?limit=5`, { headers: { "X-API-Key": API_KEY } });
             const data = await res.json();
             const feed = document.getElementById('activityFeed');
             if (!data.activity || data.activity.length === 0) {
@@ -459,7 +461,7 @@
     // ----- Review of the week -----
     async function loadReviewOfWeek() {
         try {
-            const res = await fetch(`${API_BASE}/review_of_week`);
+            const res = await fetch(`${API_BASE}/review_of_week`, { headers: { "X-API-Key": API_KEY } });
             const data = await res.json();
             const banner = document.getElementById('weekReviewBanner');
             const textSpan = document.getElementById('weekReviewText');
@@ -483,14 +485,14 @@
         for (const [key, val] of Object.entries(currentSpecFilters)) {
             url += `&spec_${key}=${encodeURIComponent(val)}`;
         }
-        const res = await fetch(url);
+        const res = await fetch(url, { headers: { "X-API-Key": API_KEY } });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
     }
 
     async function fetchUsecase(usecase) {
         if (!usecase || usecase === 'general') return [];
-        const res = await fetch(`${API_BASE}/usecase/${usecase}?limit=20`);
+        const res = await fetch(`${API_BASE}/usecase/${usecase}?limit=20`, { headers: { "X-API-Key": API_KEY } });
         if (!res.ok) return [];
         const data = await res.json();
         return data.recommendations || [];
@@ -612,7 +614,7 @@
             return;
         }
         const url = `${API_BASE}/compare?ids=${selected.join(',')}`;
-        const res = await fetch(url);
+        const res = await fetch(url, { headers: { "X-API-Key": API_KEY } });
         const data = await res.json();
         if (data.error) { alert(data.error); return; }
         let html = '<h3>Product Comparison</h3><table><th>Feature</th>';
@@ -631,13 +633,13 @@
 
     // ----- Detail view with voting -----
     async function fetchProductDetails(productId) {
-        const res = await fetch(`${API_BASE}/product/${productId}`);
+        const res = await fetch(`${API_BASE}/product/${productId}`, { headers: { "X-API-Key": API_KEY } });
         if (!res.ok) throw new Error('Product not found');
         return res.json();
     }
 
     async function fetchTrend(productId) {
-        const res = await fetch(`${API_BASE}/trend/${productId}?months=12`);
+        const res = await fetch(`${API_BASE}/trend/${productId}?months=12`, { headers: { "X-API-Key": API_KEY } });
         return res.json();
     }
 
@@ -656,7 +658,7 @@
         try {
             const res = await fetch(`${API_BASE}/vote`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
                 body: JSON.stringify({ review_id: reviewId, vote: voteValue })
             });
             const result = await res.json();
@@ -828,7 +830,7 @@
             const data = await fetchProductDetails(productId);
             renderDetail(data.product, data.reviews, data.aspects);
             if (data.product.category) {
-                const related = await fetch(`${API_BASE}/rankings?category=${data.product.category}&limit=4`);
+                const related = await fetch(`${API_BASE}/rankings?category=${data.product.category}&limit=4`, { headers: { "X-API-Key": API_KEY } });
                 const relatedData = await related.json();
                 let relatedHtml = '<h3>🔗 Other products from same category</h3><div class="related-grid">';
                 for (let rel of (relatedData.rankings || [])) {

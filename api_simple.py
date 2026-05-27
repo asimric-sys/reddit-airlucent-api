@@ -1,8 +1,9 @@
-from fastapi import FastAPI, Query, Request
+from fastapi import FastAPI, Query, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 import requests
 import os
+import re
 import logging
 import json
 import redis
@@ -10,12 +11,67 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from typing import Optional
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 load_dotenv()
+
+# ---------------------------------------------------------------------------
+# Logging strategy
+# ---------------------------------------------------------------------------
+# SAFE to log:   request method + path, HTTP status codes, error *types*,
+#                performance metrics, non-sensitive user actions, file paths.
+# NEVER log:     environment variables (SUPABASE_KEY, GROQ_API_KEY,
+#                ADMIN_API_KEY, REDIS_URL), request headers that carry
+#                credentials (Authorization, X-API-Key, apikey), full
+#                request/response bodies, database credentials, or any
+#                value read directly from os.getenv() for a secret.
+# Use logger.debug()   for verbose detail (disabled in production).
+# Use logger.info()    for important lifecycle events.
+# Use logger.warning() for recoverable problems.
+# Use logger.error()   for failures that need attention.
+# ---------------------------------------------------------------------------
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 REDIS_URL = os.getenv("REDIS_URL")
+
+# ---------- Security configuration ----------
+# Set ADMIN_API_KEY in your Railway environment variables.
+# Use a strong random string (32+ characters), e.g.:
+#   python -c "import secrets; print(secrets.token_hex(32))"
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "")
+
+# Endpoints that do NOT require an API key.
+PUBLIC_PATHS = {"/", "/widget.html", "/debug/routes"}
+
+# Allowed CORS origin(s). Set ALLOWED_ORIGIN in Railway to your WordPress domain,
+# e.g. "https://www.example.com". Defaults to localhost for local development.
+ALLOWED_ORIGIN = os.getenv("ALLOWED_ORIGIN", "http://localhost")
+
+
+def _sanitize_exception(exc: Exception) -> str:
+    """Return a safe string representation of an exception.
+
+    Strips any embedded URLs or tokens that Redis / requests libraries
+    sometimes include in error messages (e.g. redis://:<password>@host).
+    Only the exception *type* and a truncated, credential-free message
+    are returned — never the raw repr which may contain secrets.
+    """
+    raw = str(exc)
+    # Redact anything that looks like a URL with credentials
+    # (scheme://user:password@host or scheme://:password@host)
+    sanitized = re.sub(r"[a-z]+://[^@\s]*@[^\s]*", "<redacted-url>", raw, flags=re.IGNORECASE)
+    # Truncate to avoid leaking large payloads
+    return f"{type(exc).__name__}: {sanitized[:200]}"
+
+
+def _truncate_response_text(text: str, max_len: int = 120) -> str:
+    """Truncate a response body string to avoid logging PII or large payloads."""
+    if not text:
+        return ""
+    return text[:max_len] + ("…" if len(text) > max_len else "")
 
 # Redis setup (cache for 15 minutes)
 redis_client = None
@@ -25,7 +81,7 @@ if REDIS_URL:
         redis_client.ping()
         logging.info("Redis connected")
     except Exception as e:
-        logging.warning(f"Redis error: {e}")
+        logging.warning(f"Redis connection error: {_sanitize_exception(e)}")
 CACHE_TTL = 900
 
 def cache_get(key):
@@ -44,15 +100,50 @@ logger = logging.getLogger("uvicorn")
 
 app = FastAPI()
 
+# ---------- Rate limiting ----------
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        status_code=429,
+        content={"error": "Rate limit exceeded. Please slow down and try again later."},
+        headers={"Retry-After": "60"},
+    )
+
+# ---------- CORS middleware ----------
+# Only the configured WordPress domain (ALLOWED_ORIGIN) may call this API.
+# GET and POST are the only permitted methods; X-API-Key must be allowed so
+# browsers can include it in pre-flight and actual requests.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[ALLOWED_ORIGIN],
+    allow_methods=["GET", "POST"],
+    allow_headers=["X-API-Key", "Content-Type"],
 )
+
+# ---------- API key authentication middleware ----------
+# All routes except PUBLIC_PATHS require a valid X-API-Key header.
+# The expected key is read from the ADMIN_API_KEY environment variable.
+# NOTE: Headers and request bodies are intentionally NOT logged here to
+# prevent accidental exposure of credentials or PII in log streams.
+@app.middleware("http")
+async def require_api_key(request: Request, call_next):
+    if request.url.path not in PUBLIC_PATHS:
+        api_key = request.headers.get("X-API-Key", "")
+        if not ADMIN_API_KEY or api_key != ADMIN_API_KEY:
+            return JSONResponse(
+                status_code=403,
+                content={"error": "Forbidden: valid X-API-Key header required."},
+            )
+    return await call_next(request)
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
+    # Only method + path are logged — headers and body are intentionally
+    # excluded to prevent credentials (X-API-Key, Authorization) or PII
+    # from appearing in log streams.
     logger.info(f"Request: {request.method} {request.url.path}")
     response = await call_next(request)
     return response
@@ -65,7 +156,7 @@ def supabase_get(endpoint, params=None):
     }
     resp = requests.get(url, headers=headers, params=params, timeout=30)
     if resp.status_code != 200:
-        logger.warning(f"Supabase error {resp.status_code} for {endpoint}: {resp.text}")
+        logger.warning(f"Supabase error {resp.status_code} for {endpoint}: {_truncate_response_text(resp.text)}")
         return []
     return resp.json()
 
@@ -78,7 +169,7 @@ def supabase_post(endpoint, data):
     }
     resp = requests.post(url, headers=headers, json=data, timeout=30)
     if resp.status_code != 201:
-        logger.warning(f"Supabase POST error {resp.status_code} for {endpoint}: {resp.text}")
+        logger.warning(f"Supabase POST error {resp.status_code} for {endpoint}: {_truncate_response_text(resp.text)}")
         return None
     return resp
 
@@ -91,7 +182,7 @@ def supabase_patch(endpoint, data):
     }
     resp = requests.patch(url, headers=headers, json=data, timeout=30)
     if resp.status_code not in (200, 204):
-        logger.warning(f"Supabase PATCH error {resp.status_code} for {endpoint}: {resp.text}")
+        logger.warning(f"Supabase PATCH error {resp.status_code} for {endpoint}: {_truncate_response_text(resp.text)}")
         return None
     return resp
 
@@ -102,6 +193,7 @@ def root():
 
 # ---------- Rankings with category, subreddit, pagination, AND spec filters ----------
 @app.get("/rankings")
+@limiter.limit("100/minute")
 def get_rankings(
     request: Request,
     limit: int = 20,
@@ -186,7 +278,8 @@ def get_rankings(
 
 # ---------- Product details (includes aspects, specs, percentile) ----------
 @app.get("/product/{product_id}")
-def product_details(product_id: str):
+@limiter.limit("100/minute")
+def product_details(request: Request, product_id: str):
     product = supabase_get("products", params={"id": f"eq.{product_id}"})
     if not product:
         return {"error": "Product not found"}
@@ -207,7 +300,8 @@ def product_details(product_id: str):
 
 # ---------- Search ----------
 @app.get("/search")
-def search_products(q: str = Query(..., min_length=2)):
+@limiter.limit("100/minute")
+def search_products(request: Request, q: str = Query(..., min_length=2)):
     params = {
         "or": f"(brand.ilike.*{q}*,model_name.ilike.*{q}*)",
         "select": "id,brand,model_name,category"
@@ -223,7 +317,8 @@ def search_products(q: str = Query(..., min_length=2)):
 
 # ---------- Brand stats ----------
 @app.get("/brands")
-def get_brands(category: Optional[str] = None):
+@limiter.limit("100/minute")
+def get_brands(request: Request, category: Optional[str] = None):
     if category:
         products = supabase_get("products", params={"category": f"eq.{category}", "select": "id,brand"})
         if not products:
@@ -264,7 +359,8 @@ def get_brands(category: Optional[str] = None):
 
 # ---------- Categories ----------
 @app.get("/categories")
-def get_categories():
+@limiter.limit("100/minute")
+def get_categories(request: Request):
     products = supabase_get("products", params={"select": "category"})
     categories = set()
     for p in products:
@@ -284,7 +380,8 @@ USECASE_KEYWORDS = {
     "smart-home": ["smart", "wifi", "app", "alexa", "google home", "automation"]
 }
 @app.get("/usecase/{case}")
-def get_usecase(case: str, limit: int = 10):
+@limiter.limit("100/minute")
+def get_usecase(request: Request, case: str, limit: int = 10):
     case = case.lower()
     if case not in USECASE_KEYWORDS:
         return {"error": f"Unknown use case. Available: {list(USECASE_KEYWORDS.keys())}"}
@@ -328,7 +425,8 @@ def get_usecase(case: str, limit: int = 10):
 
 # ---------- Comparison ----------
 @app.get("/compare")
-def compare_products(ids: str = Query(...)):
+@limiter.limit("100/minute")
+def compare_products(request: Request, ids: str = Query(...)):
     product_ids = [pid.strip() for pid in ids.split(",")]
     if len(product_ids) < 2 or len(product_ids) > 3:
         return {"error": "Please provide 2 or 3 product IDs"}
@@ -358,7 +456,8 @@ def compare_products(ids: str = Query(...)):
 
 # ---------- Sentiment Trend ----------
 @app.get("/trend/{product_id}")
-def get_trend(product_id: str, months: int = 12):
+@limiter.limit("100/minute")
+def get_trend(request: Request, product_id: str, months: int = 12):
     history = supabase_get("sentiment_history", params={"product_id": f"eq.{product_id}", "order": "date.asc", "limit": months})
     return {"product_id": product_id, "history": history}
 
@@ -371,7 +470,8 @@ class UserReview(BaseModel):
     verbatim: str
 
 @app.post("/user_review")
-def submit_user_review(review: UserReview):
+@limiter.limit("50/minute")
+def submit_user_review(request: Request, review: UserReview):
     if review.sentiment not in ["positive", "negative", "neutral"]:
         return {"error": "Invalid sentiment"}
     data = review.dict()
@@ -387,7 +487,8 @@ def submit_user_review(review: UserReview):
 
 # ---------- NEW: Dynamic filters ----------
 @app.get("/filters")
-def get_filters():
+@limiter.limit("100/minute")
+def get_filters(request: Request):
     cache_key = "filters"
     cached = cache_get(cache_key)
     if cached is not None:
@@ -411,7 +512,8 @@ def get_filters():
 
 # ---------- NEW: Recent activity feed ----------
 @app.get("/recent_activity")
-def recent_activity(limit: int = 5):
+@limiter.limit("100/minute")
+def recent_activity(request: Request, limit: int = 5):
     reviews = supabase_get("reviews", params={"order": "created_at.desc", "limit": limit, "select": "id,verbatim,created_at,subreddit,product_id,helpful_score"})
     if not reviews:
         return {"activity": []}
@@ -425,6 +527,7 @@ def recent_activity(limit: int = 5):
 
 # ---------- NEW: User voting (upvote/downvote) ----------
 @app.post("/vote")
+@limiter.limit("50/minute")
 async def vote_review(request: Request):
     try:
         data = await request.json()
@@ -448,7 +551,8 @@ async def vote_review(request: Request):
 
 # ---------- NEW: Review of the week ----------
 @app.get("/review_of_week")
-def review_of_week():
+@limiter.limit("100/minute")
+def review_of_week(request: Request):
     today = datetime.now().date()
     start_of_week = today - timedelta(days=today.weekday())  # Monday
     week_entry = supabase_get("weekly_review", params={"week_start": f"eq.{start_of_week.isoformat()}", "select": "review_id"})

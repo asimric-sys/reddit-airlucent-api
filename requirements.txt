@@ -9,3 +9,4 @@ requests-aws4auth
 ddgs
 google-generativeai
 redis
+slowapi
