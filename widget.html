@@ -168,9 +168,7 @@
         </div>
         <div class="best-for-you">
             <strong>🤔 Best for you?</strong> <span style="font-size:0.8rem;">Select your main concern:</span>
-            <div id="usecaseButtonsContainer" class="usecase-buttons">
-                <!-- Buttons will be populated dynamically based on selected category -->
-            </div>
+            <div id="usecaseButtonsContainer" class="usecase-buttons"></div>
             <div id="personalisedResults" style="margin-top: 1rem;"></div>
         </div>
         <div class="compare-bar">
@@ -198,7 +196,7 @@
 
 <script>
     const API_BASE = 'https://reddit-airlucent-api-production.up.railway.app';
-    let currentLimit = 12;
+    const LIMIT = 12;
     let currentOffset = 0;
     let currentCategory = '';
     let currentSubreddit = '';
@@ -331,13 +329,11 @@
         themeToggle.innerHTML = document.body.classList.contains('dark') ? '☀️ Light mode' : '🌙 Dark mode';
     });
 
-    // Helper: escape HTML
     function escapeHtml(str) {
         if (!str) return '';
         return str.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m] || m));
     }
 
-    // Update use-case buttons based on selected category
     function updateUsecaseButtons() {
         const category = document.getElementById('categorySelect').value;
         const container = document.getElementById('usecaseButtonsContainer');
@@ -351,44 +347,6 @@
             btn.addEventListener('click', () => showPersonalised(uc.value));
             container.appendChild(btn);
         });
-    }
-
-    // Trending badge: >2 reviews in last 7 days
-    function isTrending(reviews) {
-        if (!reviews || !reviews.length) return false;
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        const recent = reviews.filter(r => new Date(r.created_at) >= sevenDaysAgo);
-        return recent.length > 2;
-    }
-
-    // Verified badge: trusted subreddit
-    function hasVerifiedSubreddit(reviews) {
-        if (!reviews) return false;
-        for (let rev of reviews) {
-            if (rev.subreddit && TRUSTED_SUBREDDITS.includes(rev.subreddit)) return true;
-        }
-        return false;
-    }
-
-    // Subreddit heatmap
-    function renderSubredditHeatmap(reviews) {
-        if (!reviews || !reviews.length) return '';
-        const counts = {};
-        for (let rev of reviews) {
-            const sub = rev.subreddit || 'unknown';
-            counts[sub] = (counts[sub] || 0) + 1;
-        }
-        const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0, 5);
-        if (!sorted.length) return '';
-        let html = '<div class="heatmap-container"><strong>🗺️ Subreddit heatmap</strong><div style="margin-top:0.5rem;">';
-        const maxCount = sorted[0][1];
-        for (let [sub, cnt] of sorted) {
-            const width = (cnt / maxCount) * 100;
-            html += `<div class="heatmap-bar"><span class="heatmap-label">r/${escapeHtml(sub)}</span><div class="heatmap-fill" style="width: ${width}%; background: var(--btn-bg);"></div><span style="margin-left:0.5rem; font-size:0.7rem;">${cnt}</span></div>`;
-        }
-        html += '</div></div>';
-        return html;
     }
 
     // Fetch functions
@@ -407,28 +365,6 @@
         if (!res.ok) return [];
         const data = await res.json();
         return data.recommendations || [];
-    }
-
-    async function fetchProductDetails(productId) {
-        const res = await fetch(`${API_BASE}/product/${productId}`);
-        if (!res.ok) throw new Error('Product not found');
-        return res.json();
-    }
-
-    async function fetchTrend(productId) {
-        const res = await fetch(`${API_BASE}/trend/${productId}?months=12`);
-        return res.json();
-    }
-
-    async function fetchRedditPreview(url) {
-        if (!url) return null;
-        const jsonUrl = url.replace(/\/$/, '') + '.json';
-        try {
-            const res = await fetch(jsonUrl);
-            const data = await res.json();
-            const post = data[0].data.children[0].data;
-            return { title: post.title, body: post.selftext, subreddit: post.subreddit, score: post.score };
-        } catch(e) { return null; }
     }
 
     // Personalised "Best for you"
@@ -498,24 +434,6 @@
         });
     }
 
-    async function loadMore() {
-        currentOffset += currentLimit;
-        let rankings;
-        if (currentUsecase && currentUsecase !== 'general') {
-            const recs = await fetchUsecase(currentUsecase);
-            const start = currentOffset;
-            const end = start + currentLimit;
-            rankings = recs.slice(start, end);
-            renderProducts(rankings, true);
-            if (end >= recs.length) document.getElementById('loadMoreBtn').style.display = 'none';
-        } else {
-            const data = await fetchRankings(currentCategory, currentSubreddit, currentOffset, currentLimit);
-            rankings = data.rankings || [];
-            renderProducts(rankings, true);
-            if (rankings.length < currentLimit) document.getElementById('loadMoreBtn').style.display = 'none';
-        }
-    }
-
     async function loadGrid() {
         currentCategory = document.getElementById('categorySelect').value;
         currentSubreddit = document.getElementById('subredditInput').value.trim() || null;
@@ -526,16 +444,34 @@
         try {
             if (currentUsecase && currentUsecase !== 'general') {
                 const recs = await fetchUsecase(currentUsecase);
-                const initial = recs.slice(0, currentLimit);
+                const initial = recs.slice(0, LIMIT);
                 renderProducts(initial, false);
-                if (recs.length <= currentLimit) document.getElementById('loadMoreBtn').style.display = 'none';
+                if (recs.length <= LIMIT) document.getElementById('loadMoreBtn').style.display = 'none';
             } else {
-                const data = await fetchRankings(currentCategory, currentSubreddit, currentOffset, currentLimit);
+                const data = await fetchRankings(currentCategory, currentSubreddit, currentOffset, LIMIT);
                 renderProducts(data.rankings || [], false);
-                if (data.rankings.length < currentLimit) document.getElementById('loadMoreBtn').style.display = 'none';
+                if (data.rankings.length < LIMIT) document.getElementById('loadMoreBtn').style.display = 'none';
             }
         } catch (err) {
             document.getElementById('productsContainer').innerHTML = `<div class="error">⚠️ ${err.message}</div>`;
+        }
+    }
+
+    async function loadMore() {
+        currentOffset += LIMIT;
+        let rankings;
+        if (currentUsecase && currentUsecase !== 'general') {
+            const recs = await fetchUsecase(currentUsecase);
+            const start = currentOffset;
+            const end = start + LIMIT;
+            rankings = recs.slice(start, end);
+            renderProducts(rankings, true);
+            if (end >= recs.length) document.getElementById('loadMoreBtn').style.display = 'none';
+        } else {
+            const data = await fetchRankings(currentCategory, currentSubreddit, currentOffset, LIMIT);
+            rankings = data.rankings || [];
+            renderProducts(rankings, true);
+            if (rankings.length < LIMIT) document.getElementById('loadMoreBtn').style.display = 'none';
         }
     }
 
@@ -552,11 +488,11 @@
         if (data.error) { alert(data.error); return; }
         let html = '<h3>Product Comparison</h3><table><th>Feature</th>';
         for (let p of data.products) html += `<th>${escapeHtml(p.brand)} ${escapeHtml(p.model)}</th>`;
-        html += '<tr>';
+        html += '</tr>';
         html += `<tr><td>Sentiment Score</td>${data.products.map(p => `<td>${p.sentiment_score ? Math.round(p.sentiment_score*100) + '%' : 'N/A'}</td>`).join('')}</tr>`;
         html += `<tr><td>Reviews (pos/neg)</td>${data.products.map(p => `<td>${p.positive_count} / ${p.negative_count}</td>`).join('')}</tr>`;
         html += `<tr><td>Top Pros</td>${data.products.map(p => `<td>${p.pros.map(pr => `${pr.aspect} (${pr.count})`).join('<br>') || 'None'}</td>`).join('')}</tr>`;
-        html += `<tr><td>Top Cons</td>${data.products.map(p => `<td>${p.cons.map(cn => `${cn.aspect} (${cn.count})`).join('<br>') || 'None'}</td>`).join('')}<tr>`;
+        html += `<tr><td>Top Cons</td>${data.products.map(p => `<td>${p.cons.map(cn => `${cn.aspect} (${cn.count})`).join('<br>') || 'None'}</td>`).join('')}</tr>`;
         html += `<tr><td>Subreddits</td>${data.products.map(p => `<td>${p.subreddits.join(', ') || 'General'}</td>`).join('')}</tr>`;
         html += `<tr><td>Product Page</td>${data.products.map(p => `<td><a href="#" onclick="showDetailView('${p.id}'); return false;">View details</a></td>`).join('')}</tr>`;
         html += '</table>';
@@ -564,7 +500,64 @@
         document.getElementById('compareModal').classList.remove('hidden');
     }
 
-    // Detail view
+    // Detail view (kept as in original, but with fixed pagination)
+    async function fetchProductDetails(productId) {
+        const res = await fetch(`${API_BASE}/product/${productId}`);
+        if (!res.ok) throw new Error('Product not found');
+        return res.json();
+    }
+
+    async function fetchTrend(productId) {
+        const res = await fetch(`${API_BASE}/trend/${productId}?months=12`);
+        return res.json();
+    }
+
+    async function fetchRedditPreview(url) {
+        if (!url) return null;
+        const jsonUrl = url.replace(/\/$/, '') + '.json';
+        try {
+            const res = await fetch(jsonUrl);
+            const data = await res.json();
+            const post = data[0].data.children[0].data;
+            return { title: post.title, body: post.selftext, subreddit: post.subreddit, score: post.score };
+        } catch(e) { return null; }
+    }
+
+    function isTrending(reviews) {
+        if (!reviews || !reviews.length) return false;
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const recent = reviews.filter(r => new Date(r.created_at) >= sevenDaysAgo);
+        return recent.length > 2;
+    }
+
+    function hasVerifiedSubreddit(reviews) {
+        if (!reviews) return false;
+        for (let rev of reviews) {
+            if (rev.subreddit && TRUSTED_SUBREDDITS.includes(rev.subreddit)) return true;
+        }
+        return false;
+    }
+
+    function renderSubredditHeatmap(reviews) {
+        if (!reviews || !reviews.length) return '';
+        const counts = {};
+        for (let rev of reviews) {
+            const sub = rev.subreddit || 'unknown';
+            counts[sub] = (counts[sub] || 0) + 1;
+        }
+        const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0, 5);
+        if (!sorted.length) return '';
+        let html = '<div class="heatmap-container"><strong>🗺️ Subreddit heatmap</strong><div style="margin-top:0.5rem;">';
+        const maxCount = sorted[0][1];
+        for (let [sub, cnt] of sorted) {
+            const width = (cnt / maxCount) * 100;
+            html += `<div class="heatmap-bar"><span class="heatmap-label">r/${escapeHtml(sub)}</span><div class="heatmap-fill" style="width: ${width}%; background: var(--btn-bg);"></div><span style="margin-left:0.5rem; font-size:0.7rem;">${cnt}</span></div>`;
+        }
+        html += '</div></div>';
+        return html;
+    }
+
     function renderDetail(product, reviews, aspects) {
         const score = Math.round((product.sentiment_score || 0) * 100);
         const totalReviews = (product.positive_count||0)+(product.negative_count||0);
@@ -708,9 +701,9 @@
     window.addEventListener('click', (e) => { if (e.target === document.getElementById('compareModal')) document.getElementById('compareModal').classList.add('hidden'); });
     document.getElementById('categorySelect').addEventListener('change', () => {
         updateUsecaseButtons();
-        loadGrid(); // also reload grid when category changes
+        loadGrid();
     });
-    // Initialise use-case buttons based on default category
+
     updateUsecaseButtons();
     loadGrid();
 </script>
