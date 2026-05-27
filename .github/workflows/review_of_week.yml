@@ -1,0 +1,23 @@
+name: Weekly Review of the Week
+
+on:
+  schedule:
+    - cron: '0 1 * * 1'   # Runs every Monday at 1:00 AM UTC
+  workflow_dispatch:        # allows manual trigger
+
+jobs:
+  update-weekly-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install dependencies
+        run: pip install requests python-dotenv
+      - name: Run review of the week script
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python review_of_week.py
