@@ -466,6 +466,39 @@ def review_of_week():
     review[0]["snippet"] = (review[0]["verbatim"][:200] + "...") if len(review[0]["verbatim"]) > 200 else review[0]["verbatim"]
     return {"review": review[0]}
 
+# ---------- Widget ----------
+@app.get("/widget.html", response_class=HTMLResponse)
+def serve_widget():
+    # Strategy 1: explicit container working directory path
+    paths_tried = []
+    candidate_paths = [
+        "/app/widget.html",
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "widget.html"),
+        os.path.join(os.getcwd(), "widget.html"),
+    ]
+    for path in candidate_paths:
+        paths_tried.append(path)
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                logger.info(f"Serving widget.html from: {path}")
+                return HTMLResponse(content=f.read(), status_code=200)
+        except FileNotFoundError:
+            logger.warning(f"widget.html not found at: {path}")
+        except Exception as e:
+            logger.error(f"Error reading widget.html at {path}: {e}")
+
+    logger.error(f"widget.html not found. Tried: {paths_tried}")
+    return HTMLResponse(
+        content=(
+            f"<h1>widget.html not found</h1>"
+            f"<p>Searched the following paths:</p>"
+            f"<ul>{''.join(f'<li>{p}</li>' for p in paths_tried)}</ul>"
+            f"<p>CWD: {os.getcwd()}</p>"
+            f"<p>__file__: {os.path.abspath(__file__)}</p>"
+        ),
+        status_code=404,
+    )
+
 # ---------- Debug routes ----------
 @app.get("/debug/routes")
 def list_routes():
