@@ -385,37 +385,41 @@
 
     // ----- Filters sidebar -----
     async function loadFilters() {
-        const res = await fetch(`${API_BASE}/filters`);
+        const res = await fetch(`${API_BASE}/filters`, { headers: { "X-API-Key": API_KEY } });
         const filters = await res.json();
         const container = document.getElementById('specFilters');
         container.innerHTML = '';
+        
         for (const [key, values] of Object.entries(filters)) {
             if (!values.length) continue;
+            
             const section = document.createElement('div');
             section.className = 'filter-section';
-            section.innerHTML = `<h4>${key.replace(/_/g, ' ')}</h4>`;
-            values.forEach(val => {
-                const label = document.createElement('label');
-                const cb = document.createElement('input');
-                cb.type = 'checkbox';
-                cb.value = val;
-                cb.addEventListener('change', () => {
-                    if (cb.checked) {
-                        currentSpecFilters[key] = val;
-                    } else {
-                        delete currentSpecFilters[key];
-                    }
-                    loadGrid();
-                });
-                label.appendChild(cb);
-                label.appendChild(document.createTextNode(' ' + val));
-                section.appendChild(label);
-            });
+            section.innerHTML = `
+                <h4>${key.replace(/_/g, ' ')}</h4>
+                <select id="filter_${key}" style="width:100%; padding:0.4rem; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-primary);">
+                    <option value="">Any</option>
+                    ${values.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}
+                </select>
+            `;
             container.appendChild(section);
+            
+            // Attach change event to reload grid
+            const select = section.querySelector('select');
+            select.addEventListener('change', () => {
+                if (select.value) {
+                    currentSpecFilters[key] = select.value;
+                } else {
+                    delete currentSpecFilters[key];
+                }
+                loadGrid();
+            });
         }
+        
+        // Also handle clear filters button
         document.getElementById('clearFiltersBtn').addEventListener('click', () => {
             currentSpecFilters = {};
-            document.querySelectorAll('#specFilters input').forEach(cb => cb.checked = false);
+            document.querySelectorAll('#specFilters select').forEach(sel => sel.value = '');
             loadGrid();
         });
     }
