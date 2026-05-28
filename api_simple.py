@@ -518,14 +518,38 @@ def get_filters(request: Request):
         "energy_efficiency": set(),
         "filter_type": set()
     }
+    # Patterns to normalize
+    ignore_terms = re.compile(r'\b(not mentioned|not specified|none mentioned|unknown|none|null|n/a)\b', re.IGNORECASE)
+    
     for p in products:
         specs = p.get("specs", {})
         for key in filters.keys():
             val = specs.get(key)
-            if val and isinstance(val, str):
-                filters[key].add(val.strip())
-    result = {k: sorted(list(v)) for k, v in filters.items()}
-    cache_set(cache_key, result, ttl=3600)  # cache for 1 hour
+            if not val or not isinstance(val, str):
+                continue
+            
+            # Normalize: clean whitespace, lower, replace ignore terms with "Not specified"
+            clean = val.strip()
+            if ignore_terms.search(clean):
+                clean = "Not specified"
+            else:
+                # Optionally shorten common phrases
+                clean = re.sub(r'\bup to\b', '≤', clean)
+                clean = re.sub(r'\b(?:square feet|sq ft|ft2)\b', 'sq ft', clean)
+            
+            if clean:
+                filters[key].add(clean)
+    
+    # Convert sets to sorted lists, putting "Not specified" at the end
+    result = {}
+    for k, v in filters.items():
+        lst = sorted(v)
+        if "Not specified" in lst:
+            lst.remove("Not specified")
+            lst.append("Not specified")
+        result[k] = lst
+    
+    cache_set(cache_key, result, ttl=3600)
     return result
 
 # ---------- NEW: Recent activity feed ----------
