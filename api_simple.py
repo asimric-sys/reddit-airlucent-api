@@ -43,8 +43,18 @@ REDIS_URL = os.getenv("REDIS_URL")
 #   python -c "import secrets; print(secrets.token_hex(32))"
 ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "")
 
-# Endpoints that do NOT require an API key.
-PUBLIC_PATHS = {"/", "/widget.html", "/debug/routes"}
+# Endpoints that are publicly readable — no API key required.
+# Prefix-matched: any path that *starts with* one of these strings is allowed.
+PUBLIC_READ_PATHS = {
+    "/", "/widget.html", "/debug/routes",
+    "/rankings", "/product/", "/search", "/brands", "/categories",
+    "/usecase/", "/compare", "/trend/", "/filters", "/recent_activity", "/review_of_week",
+}
+
+# Endpoints that mutate state — API key required to prevent spam/abuse.
+PROTECTED_WRITE_PATHS = {
+    "/user_review", "/vote",
+}
 
 # Allowed CORS origin(s). Set ALLOWED_ORIGIN in Railway to your WordPress domain,
 # e.g. "https://www.example.com". Defaults to localhost for local development.
@@ -124,19 +134,27 @@ app.add_middleware(
 )
 
 # ---------- API key authentication middleware ----------
-# All routes except PUBLIC_PATHS require a valid X-API-Key header.
-# The expected key is read from the ADMIN_API_KEY environment variable.
+# Security model:
+#   - GET requests to PUBLIC_READ_PATHS are open to everyone (widget, browsers).
+#   - POST requests to PROTECTED_WRITE_PATHS require a valid X-API-Key header.
+#   - All other requests also require the key.
 # NOTE: Headers and request bodies are intentionally NOT logged here to
 # prevent accidental exposure of credentials or PII in log streams.
 @app.middleware("http")
 async def require_api_key(request: Request, call_next):
-    if request.url.path not in PUBLIC_PATHS:
-        api_key = request.headers.get("X-API-Key", "")
-        if not ADMIN_API_KEY or api_key != ADMIN_API_KEY:
-            return JSONResponse(
-                status_code=403,
-                content={"error": "Forbidden: valid X-API-Key header required."},
-            )
+    path = request.url.path
+
+    # Allow all GET requests to public read paths (prefix match).
+    if request.method == "GET" and any(path.startswith(p) for p in PUBLIC_READ_PATHS):
+        return await call_next(request)
+
+    # Require API key for protected write endpoints and anything else.
+    api_key = request.headers.get("X-API-Key", "")
+    if not ADMIN_API_KEY or api_key != ADMIN_API_KEY:
+        return JSONResponse(
+            status_code=403,
+            content={"error": "Forbidden: valid X-API-Key header required for write operations."},
+        )
     return await call_next(request)
 
 @app.middleware("http")
