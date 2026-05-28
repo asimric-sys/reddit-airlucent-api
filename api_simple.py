@@ -301,7 +301,7 @@ def product_details(request: Request, product_id: str):
     product = supabase_get("products", params={"id": f"eq.{product_id}"})
     if not product:
         return {"error": "Product not found"}
-    reviews = supabase_get("reviews", params={"product_id": f"eq.{product_id}", "order": "created_at.desc", "limit": 10})
+    reviews = supabase_get("reviews", params={"product_id": f"eq.{product_id}", "order": "created_at.desc", "limit": 50})
     aspects = supabase_get("product_aspects", params={"product_id": f"eq.{product_id}"})
     # Compute percentile
     all_scores = supabase_get("rankings", params={"select": "sentiment_score", "order": "sentiment_score.asc"})
