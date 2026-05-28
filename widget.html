@@ -63,37 +63,7 @@
         }
         .header h1 { margin: 0; font-size: 2rem; display: inline-flex; align-items: center; gap: 10px; }
         .theme-toggle { background: rgba(255,255,255,0.2); border: none; border-radius: 60px; padding: 0.4rem 1rem; font-size: 0.9rem; cursor: pointer; color: white; }
-        .main-content { display: flex; flex-wrap: wrap; }
-        .filters-sidebar {
-            width: 260px;
-            background: var(--filter-bg);
-            padding: 1.5rem;
-            border-right: 1px solid var(--border);
-        }
-        .filter-section {
-            margin-bottom: 1.5rem;
-        }
-        .filter-section h4 {
-            margin: 0 0 0.5rem;
-            font-size: 0.9rem;
-        }
-        .filter-section label {
-            display: block;
-            font-size: 0.8rem;
-            margin-bottom: 0.3rem;
-        }
-        .right-col {
-            flex: 1;
-        }
-        .filters-top {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 1rem;
-            padding: 1.2rem 2rem;
-            background: var(--filter-bg);
-            border-bottom: 1px solid var(--border);
-            align-items: flex-end;
-        }
+        .filters { display: flex; flex-wrap: wrap; gap: 1rem; padding: 1.2rem 2rem; background: var(--filter-bg); border-bottom: 1px solid var(--border); align-items: flex-end; }
         .filter-group { display: flex; flex-direction: column; gap: 0.3rem; }
         .filter-group label { font-weight: 600; font-size: 0.7rem; text-transform: uppercase; color: var(--text-secondary); }
         select, input, button { padding: 0.6rem 1.2rem; border-radius: 40px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-primary); font-size: 0.9rem; cursor: pointer; }
@@ -115,6 +85,23 @@
         .load-more { display: flex; justify-content: center; margin: 1rem 0 2rem; }
         .detail-view { padding: 2rem; }
         .back-link { cursor: pointer; color: var(--btn-bg); margin-bottom: 1rem; display: inline-block; }
+        .product-detail-layout {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        .product-detail-image {
+            flex: 0 0 200px;
+        }
+        .product-detail-image img {
+            width: 100%;
+            border-radius: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .product-detail-header {
+            flex: 1;
+        }
         .pros-cons-grid { display: flex; flex-wrap: wrap; gap: 2rem; margin: 2rem 0; }
         .pro-section, .con-section { flex: 1; }
         .pro-item, .con-item { background: var(--card-bg); border-radius: 24px; padding: 1rem; margin-bottom: 1rem; border-left: 4px solid; }
@@ -146,12 +133,10 @@
         .heatmap-fill { background: var(--btn-bg); height: 20px; border-radius: 10px; }
         .reddit-preview { background: var(--filter-bg); padding: 1rem; border-radius: 20px; margin: 1rem 0; }
         .activity-feed { background: var(--filter-bg); border-radius: 20px; padding: 1rem; margin: 0 2rem 1rem 2rem; }
-        .activity-item { border-bottom: 1px solid var(--border); padding: 0.5rem 0; }
-        .activity-item:last-child { border: none; }
         .week-review-banner { background: var(--btn-bg); color: white; padding: 0.8rem 1rem; border-radius: 40px; margin: 0 2rem 1rem 2rem; text-align: center; cursor: pointer; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         footer { background: var(--card-bg); text-align: center; padding: 1rem; font-size: 0.75rem; border-top: 1px solid var(--border); }
-        @media (max-width: 768px) { .filters-sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); } .main-content { flex-direction: column; } .filters-top { flex-direction: column; align-items: stretch; } }
+        @media (max-width: 768px) { .filters-sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); } .main-content { flex-direction: column; } .filters-top { flex-direction: column; align-items: stretch; } .product-detail-layout { flex-direction: column; align-items: center; } .product-detail-image { max-width: 200px; } }
         .hidden { display: none; }
     </style>
 </head>
@@ -242,14 +227,12 @@
 
 <script>
     const API_BASE = 'https://reddit-airlucent-api-production.up.railway.app';
-    // Set this to the value of ADMIN_API_KEY from your Railway environment variables.
-    const API_KEY = '8d27474a07b6ba142eaf4bb7d75027463b0ec05541a1c77896e0731a0728f325';
     const LIMIT = 12;
     let currentOffset = 0;
     let currentCategory = '';
     let currentSubreddit = '';
     let currentUsecase = '';
-    let currentSpecFilters = {};  // e.g. { room_size: 'up to 300 sq ft' }
+    let currentSpecFilters = {};
     let chartInstance = null;
     let activityInterval = null;
     const TRUSTED_SUBREDDITS = ['BuyItForLife', 'HomeImprovement', 'AirPurifiers', 'HVAC', 'Home', 'GoodValue', 'BIFL'];
@@ -402,7 +385,7 @@
 
     // ----- Filters sidebar -----
     async function loadFilters() {
-        const res = await fetch(`${API_BASE}/filters`, { headers: { "X-API-Key": API_KEY } });
+        const res = await fetch(`${API_BASE}/filters`);
         const filters = await res.json();
         const container = document.getElementById('specFilters');
         container.innerHTML = '';
@@ -440,7 +423,7 @@
     // ----- Recent activity feed (auto‑refresh) -----
     async function loadRecentActivity() {
         try {
-            const res = await fetch(`${API_BASE}/recent_activity?limit=5`, { headers: { "X-API-Key": API_KEY } });
+            const res = await fetch(`${API_BASE}/recent_activity?limit=5`);
             const data = await res.json();
             const feed = document.getElementById('activityFeed');
             if (!data.activity || data.activity.length === 0) {
@@ -461,7 +444,7 @@
     // ----- Review of the week -----
     async function loadReviewOfWeek() {
         try {
-            const res = await fetch(`${API_BASE}/review_of_week`, { headers: { "X-API-Key": API_KEY } });
+            const res = await fetch(`${API_BASE}/review_of_week`);
             const data = await res.json();
             const banner = document.getElementById('weekReviewBanner');
             const textSpan = document.getElementById('weekReviewText');
@@ -485,14 +468,14 @@
         for (const [key, val] of Object.entries(currentSpecFilters)) {
             url += `&spec_${key}=${encodeURIComponent(val)}`;
         }
-        const res = await fetch(url, { headers: { "X-API-Key": API_KEY } });
+        const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
     }
 
     async function fetchUsecase(usecase) {
         if (!usecase || usecase === 'general') return [];
-        const res = await fetch(`${API_BASE}/usecase/${usecase}?limit=20`, { headers: { "X-API-Key": API_KEY } });
+        const res = await fetch(`${API_BASE}/usecase/${usecase}?limit=20`);
         if (!res.ok) return [];
         const data = await res.json();
         return data.recommendations || [];
@@ -614,7 +597,7 @@
             return;
         }
         const url = `${API_BASE}/compare?ids=${selected.join(',')}`;
-        const res = await fetch(url, { headers: { "X-API-Key": API_KEY } });
+        const res = await fetch(url);
         const data = await res.json();
         if (data.error) { alert(data.error); return; }
         let html = '<h3>Product Comparison</h3><table><th>Feature</th>';
@@ -631,15 +614,15 @@
         document.getElementById('compareModal').classList.remove('hidden');
     }
 
-    // ----- Detail view with voting -----
+    // ----- Detail view with product image -----
     async function fetchProductDetails(productId) {
-        const res = await fetch(`${API_BASE}/product/${productId}`, { headers: { "X-API-Key": API_KEY } });
+        const res = await fetch(`${API_BASE}/product/${productId}`);
         if (!res.ok) throw new Error('Product not found');
         return res.json();
     }
 
     async function fetchTrend(productId) {
-        const res = await fetch(`${API_BASE}/trend/${productId}?months=12`, { headers: { "X-API-Key": API_KEY } });
+        const res = await fetch(`${API_BASE}/trend/${productId}?months=12`);
         return res.json();
     }
 
@@ -658,7 +641,7 @@
         try {
             const res = await fetch(`${API_BASE}/vote`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ review_id: reviewId, vote: voteValue })
             });
             const result = await res.json();
@@ -718,6 +701,7 @@
         for (let c of cons) {
             consHtml += `<div class="con-item"><h4>${escapeHtml(c.aspect_name)} <span>👎 ${c.negative_count}</span></h4><div class="quote-list">${c.quotes.map(q => `<p>“${escapeHtml(q)}”</p>`).join('')}</div></div>`;
         }
+
         let reviewsHtml = '<h3>📝 Reddit Reviews</h3>';
         for (let rev of reviews) {
             const redditUrl = rev.reddit_url || `https://www.reddit.com/r/${rev.subreddit || 'reddit'}/search?q=${encodeURIComponent(rev.verbatim.slice(0,30))}`;
@@ -739,14 +723,22 @@
                 </div>
             `;
         }
+
         const shareUrl = `${window.location.origin}?id=${product.id}`;
         const badge = product.reddit_percentile ? (product.reddit_percentile >= 95 ? '🏆 Top 5%' : product.reddit_percentile >= 80 ? '🌟 Top 20%' : '✅ Popular') : '';
+        const imageHtml = product.image_url ? `<div class="product-detail-image"><img src="${product.image_url}" alt="${product.brand} ${product.model_name}"></div>` : '';
+
         const html = `
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h2>${escapeHtml(product.brand)} ${escapeHtml(product.model_name)} ${trending} ${verified}</h2>
-                <div><button class="share-btn" onclick="navigator.clipboard.writeText('${shareUrl}'); alert('Link copied!')">🔗 Share</button> <span class="reddit-badge">${badge}</span></div>
+            <div class="product-detail-layout">
+                ${imageHtml}
+                <div class="product-detail-header">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h2>${escapeHtml(product.brand)} ${escapeHtml(product.model_name)} ${trending} ${verified}</h2>
+                        <div><button class="share-btn" onclick="navigator.clipboard.writeText('${shareUrl}'); alert('Link copied!')">🔗 Share</button> <span class="reddit-badge">${badge}</span></div>
+                    </div>
+                    <div class="sentiment-badge">⭐ ${score}% positive (${totalReviews} reviews)</div>
+                </div>
             </div>
-            <div class="sentiment-badge">⭐ ${score}% positive (${totalReviews} reviews)</div>
             <canvas id="trendChart"></canvas>
             ${heatmapHtml}
             <div class="pros-cons-grid"><div class="pro-section"><h3>✅ Top Pros</h3>${prosHtml || '<p>No pros identified yet</p>'}</div><div class="con-section"><h3>❌ Top Cons</h3>${consHtml || '<p>No cons identified yet</p>'}</div></div>
@@ -754,6 +746,7 @@
         `;
         document.getElementById('detailContent').innerHTML = html;
         loadTrendChart(product.id);
+
         // Attach vote buttons
         document.querySelectorAll('.vote-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -763,7 +756,7 @@
                 voteReview(reviewId, vote, btn.parentElement);
             });
         });
-        // Show more / less for long reviews
+        // Attach show more / less for reviews
         document.querySelectorAll('.show-more-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const targetId = btn.dataset.id;
@@ -777,6 +770,7 @@
                 }
             });
         });
+        // Reddit preview if available
         if (reviews.length && reviews[0].reddit_url) {
             fetchRedditPreview(reviews[0].reddit_url).then(preview => {
                 if (preview) {
@@ -830,7 +824,7 @@
             const data = await fetchProductDetails(productId);
             renderDetail(data.product, data.reviews, data.aspects);
             if (data.product.category) {
-                const related = await fetch(`${API_BASE}/rankings?category=${data.product.category}&limit=4`, { headers: { "X-API-Key": API_KEY } });
+                const related = await fetch(`${API_BASE}/rankings?category=${data.product.category}&limit=4`);
                 const relatedData = await related.json();
                 let relatedHtml = '<h3>🔗 Other products from same category</h3><div class="related-grid">';
                 for (let rel of (relatedData.rankings || [])) {
