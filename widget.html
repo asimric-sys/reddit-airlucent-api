@@ -259,7 +259,6 @@
     let activityInterval = null;
     const TRUSTED_SUBREDDITS = ['BuyItForLife', 'HomeImprovement', 'AirPurifiers', 'HVAC', 'Home', 'GoodValue', 'BIFL'];
 
-    // Use case mapping (same as before)
     const useCaseMap = {
         'air-purifier': [
             { label: '🚬 Smoke & Odor', value: 'smoke' },
@@ -376,20 +375,17 @@
     };
     const defaultUseCases = [{ label: '✨ General recommendations', value: 'general' }];
 
-    // ----- Helper functions -----
     function escapeHtml(str) {
         if (!str) return '';
         return str.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m] || m));
     }
 
-    // Dark mode toggle
     const themeToggle = document.getElementById('themeToggle');
     themeToggle.addEventListener('click', () => {
         document.body.classList.toggle('dark');
         themeToggle.innerHTML = document.body.classList.contains('dark') ? '☀️ Light mode' : '🌙 Dark mode';
     });
 
-    // ----- Dynamic use‑case buttons -----
     function updateUsecaseButtons() {
         const category = document.getElementById('categorySelect').value;
         const container = document.getElementById('usecaseButtonsContainer');
@@ -405,7 +401,6 @@
         });
     }
 
-    // ----- Filters sidebar (removed API key header) -----
     async function loadFilters() {
         const res = await fetch(`${API_BASE}/filters`);
         const filters = await res.json();
@@ -414,7 +409,6 @@
         
         for (const [key, values] of Object.entries(filters)) {
             if (!values.length) continue;
-            
             const section = document.createElement('div');
             section.className = 'filter-section';
             section.innerHTML = `
@@ -425,18 +419,13 @@
                 </select>
             `;
             container.appendChild(section);
-            
             const select = section.querySelector('select');
             select.addEventListener('change', () => {
-                if (select.value) {
-                    currentSpecFilters[key] = select.value;
-                } else {
-                    delete currentSpecFilters[key];
-                }
+                if (select.value) currentSpecFilters[key] = select.value;
+                else delete currentSpecFilters[key];
                 loadGrid();
             });
         }
-        
         document.getElementById('clearFiltersBtn').addEventListener('click', () => {
             currentSpecFilters = {};
             document.querySelectorAll('#specFilters select').forEach(sel => sel.value = '');
@@ -444,7 +433,6 @@
         });
     }
 
-    // ----- Recent activity feed -----
     async function loadRecentActivity() {
         try {
             const res = await fetch(`${API_BASE}/recent_activity?limit=5`);
@@ -465,7 +453,6 @@
         } catch (e) { console.error('Activity feed error', e); }
     }
 
-    // ----- Review of the week -----
     async function loadReviewOfWeek() {
         try {
             const res = await fetch(`${API_BASE}/review_of_week`);
@@ -484,7 +471,6 @@
         } catch (e) { console.error('Review of week error', e); }
     }
 
-    // ----- Fetch rankings with current filters (no usecase) -----
     async function fetchRankings(category, subreddit, offset, limit) {
         let url = `${API_BASE}/rankings?limit=${limit}&offset=${offset}`;
         if (category) url += `&category=${category}`;
@@ -505,7 +491,6 @@
         return data.recommendations || [];
     }
 
-    // ----- Grid rendering (fixed review count) -----
     function renderProducts(rankings, isAppend = false) {
         const container = document.getElementById('productsContainer');
         if (!rankings.length && !isAppend) { container.innerHTML = '<div class="error">😕 No products found.</div>'; return; }
@@ -515,12 +500,11 @@
             const p = item.product || {};
             const score = Math.round((item.sentiment_score || 0) * 100);
             const trending = (p.trending) ? '<span class="trending-badge">🔥 Trending</span>' : '';
-            // Use review_count from API if available, otherwise sum positive+negative
             const totalReviews = (item.review_count !== undefined && item.review_count !== null) 
                 ? item.review_count 
                 : ((item.positive_count || 0) + (item.negative_count || 0));
             html += `
-                <div class="product-card" data-id="${p.id}">
+                <div class="product-card" data-id="${p.id}" data-review-count="${totalReviews}">
                     ${trending}
                     <div style="padding: 0.5rem 1rem 0;"><input type="checkbox" class="product-select" value="${p.id}" style="transform: scale(1.2);"></div>
                     <img class="product-img" src="${p.image_url || 'https://via.placeholder.com/300x180?text=📸'}" onerror="this.src='https://via.placeholder.com/300x180?text=📸'">
@@ -538,9 +522,10 @@
         }
         document.querySelectorAll('.product-card').forEach(card => {
             const checkbox = card.querySelector('.product-select');
+            const reviewCount = card.dataset.reviewCount;
             card.addEventListener('click', (e) => {
                 if (e.target !== checkbox && !checkbox.contains(e.target)) {
-                    showDetailView(card.dataset.id);
+                    showDetailView(card.dataset.id, reviewCount);
                 }
             });
         });
@@ -548,10 +533,8 @@
 
     async function loadMore() {
         currentOffset += LIMIT;
-        let rankings;
-        // No usecase handling for main grid anymore – only rankings
         const data = await fetchRankings(currentCategory, currentSubreddit, currentOffset, LIMIT);
-        rankings = data.rankings || [];
+        const rankings = data.rankings || [];
         renderProducts(rankings, true);
         if (rankings.length < LIMIT) document.getElementById('loadMoreBtn').style.display = 'none';
     }
@@ -571,7 +554,6 @@
         }
     }
 
-    // ----- Personalised "Best for you" (unchanged) -----
     async function showPersonalised(usecase) {
         const container = document.getElementById('personalisedResults');
         container.innerHTML = '<div class="loading">⏳ Loading personalised picks...</div>';
@@ -585,7 +567,7 @@
             const p = rec.product;
             const score = Math.round((rec.score || 0) * 100);
             html += `
-                <div class="product-card" style="width:200px; cursor:pointer;" data-id="${p.id}">
+                <div class="product-card" style="width:200px; cursor:pointer;" data-id="${p.id}" data-review-count="${rec.review_count || 0}">
                     <img class="product-img" src="${p.image_url || 'https://via.placeholder.com/200x120?text=📸'}" style="height:120px;">
                     <div class="product-info">
                         <div class="product-title"><strong>${escapeHtml(p.brand || '')}</strong> ${escapeHtml(p.model_name || '')}</div>
@@ -597,11 +579,11 @@
         html += '</div>';
         container.innerHTML = html;
         container.querySelectorAll('.product-card').forEach(card => {
-            card.addEventListener('click', () => showDetailView(card.dataset.id));
+            const reviewCount = card.dataset.reviewCount;
+            card.addEventListener('click', () => showDetailView(card.dataset.id, reviewCount));
         });
     }
 
-    // ----- Comparison -----
     async function compareProducts() {
         const selected = Array.from(document.querySelectorAll('.product-select:checked')).map(cb => cb.value);
         if (selected.length < 2 || selected.length > 3) {
@@ -614,7 +596,7 @@
         if (data.error) { alert(data.error); return; }
         let html = '<h3>Product Comparison</h3><table><th>Feature</th>';
         for (let p of data.products) html += `<th>${escapeHtml(p.brand)} ${escapeHtml(p.model)}</th>`;
-        html += '</tr>';
+        html += '<tr>';
         html += `<tr><td>Sentiment Score</td>${data.products.map(p => `<td>${p.sentiment_score ? Math.round(p.sentiment_score*100) + '%' : 'N/A'}</td>`).join('')}</tr>`;
         html += `<tr><td>Reviews (pos/neg)</td>${data.products.map(p => `<td>${p.positive_count} / ${p.negative_count}</td>`).join('')}</tr>`;
         html += `<tr><td>Top Pros</td>${data.products.map(p => `<td>${p.pros.map(pr => `${pr.aspect} (${pr.count})`).join('<br>') || 'None'}</td>`).join('')}</tr>`;
@@ -626,7 +608,6 @@
         document.getElementById('compareModal').classList.remove('hidden');
     }
 
-    // ----- Detail view with fixed review count and aligned badges -----
     async function fetchProductDetails(productId) {
         const res = await fetch(`${API_BASE}/product/${productId}`);
         if (!res.ok) throw new Error('Product not found');
@@ -698,11 +679,14 @@
         return html;
     }
 
-    function renderDetail(product, reviews, aspects) {
+    function renderDetail(product, reviews, aspects, providedReviewCount = null) {
         const score = Math.round((product.sentiment_score || 0) * 100);
-        const totalReviews = (product.review_count !== undefined && product.review_count !== null) 
-            ? product.review_count 
-            : ((product.positive_count||0)+(product.negative_count||0));
+        let totalReviews = providedReviewCount;
+        if (totalReviews === null || totalReviews === undefined) {
+            totalReviews = (product.review_count !== undefined && product.review_count !== null) 
+                ? product.review_count 
+                : ((product.positive_count||0)+(product.negative_count||0));
+        }
         const trending = isTrending(reviews) ? '<span class="trending-badge-inline">🔥 Trending</span>' : '';
         const verified = hasVerifiedSubreddit(reviews) ? '<span class="verified-badge-inline">✅ Reddit Verified</span>' : '';
         const heatmapHtml = renderSubredditHeatmap(reviews);
@@ -830,25 +814,28 @@
         });
     }
 
-    async function showDetailView(productId) {
+    async function showDetailView(productId, reviewCountFromCard = null) {
         document.getElementById('gridView').style.display = 'none';
         document.getElementById('detailView').style.display = 'block';
         document.getElementById('detailContent').innerHTML = '<div class="loading">⏳ Loading...</div>';
         try {
             const data = await fetchProductDetails(productId);
-            renderDetail(data.product, data.reviews, data.aspects);
+            // Use the passed review count (from grid card) if available, otherwise fallback to product data
+            renderDetail(data.product, data.reviews, data.aspects, reviewCountFromCard);
             if (data.product.category) {
                 const related = await fetch(`${API_BASE}/rankings?category=${data.product.category}&limit=4`);
                 const relatedData = await related.json();
                 let relatedHtml = '<h3>🔗 Other products from same category</h3><div class="related-grid">';
                 for (let rel of (relatedData.rankings || [])) {
                     if (rel.product.id === productId) continue;
-                    relatedHtml += `<div class="related-card" data-id="${rel.product.id}"><strong>${escapeHtml(rel.product.brand)} ${escapeHtml(rel.product.model_name)}</strong><br>👍 ${Math.round((rel.sentiment_score||0)*100)}%</div>`;
+                    const relReviewCount = (rel.review_count !== undefined && rel.review_count !== null) ? rel.review_count : ((rel.positive_count || 0) + (rel.negative_count || 0));
+                    relatedHtml += `<div class="related-card" data-id="${rel.product.id}" data-review-count="${relReviewCount}"><strong>${escapeHtml(rel.product.brand)} ${escapeHtml(rel.product.model_name)}</strong><br>👍 ${Math.round((rel.sentiment_score||0)*100)}%</div>`;
                 }
                 relatedHtml += '</div>';
                 document.getElementById('relatedProducts').innerHTML = relatedHtml;
                 document.querySelectorAll('.related-card').forEach(card => {
-                    card.addEventListener('click', () => showDetailView(card.dataset.id));
+                    const rCount = card.dataset.reviewCount;
+                    card.addEventListener('click', () => showDetailView(card.dataset.id, rCount));
                 });
             }
         } catch(err) {
@@ -862,7 +849,6 @@
         loadGrid();
     }
 
-    // ----- Event listeners and init -----
     document.getElementById('runBtn').addEventListener('click', () => { loadGrid(); });
     document.getElementById('backToGridBtn').addEventListener('click', showGridView);
     document.getElementById('compareBtn').addEventListener('click', compareProducts);
