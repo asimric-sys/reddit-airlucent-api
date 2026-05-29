@@ -102,6 +102,35 @@
         .product-detail-header {
             flex: 1;
         }
+        .title-badge-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+        .title-badge-row h2 {
+            margin: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .trending-badge-inline, .verified-badge-inline {
+            display: inline-flex;
+            align-items: center;
+            background: #ff4500;
+            color: white;
+            padding: 0.2rem 0.7rem;
+            border-radius: 40px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            margin-left: 0.25rem;
+            vertical-align: middle;
+        }
+        .verified-badge-inline {
+            background: var(--verified-badge);
+        }
         .pros-cons-grid { display: flex; flex-wrap: wrap; gap: 2rem; margin: 2rem 0; }
         .pro-section, .con-section { flex: 1; }
         .pro-item, .con-item { background: var(--card-bg); border-radius: 24px; padding: 1rem; margin-bottom: 1rem; border-left: 4px solid; }
@@ -181,12 +210,6 @@
                         </select>
                     </div>
                     <div class="filter-group">
-                        <label>🎯 Use Case</label>
-                        <select id="usecaseSelect">
-                            <option value="">Any</option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
                         <label>🎯 Subreddit</label>
                         <input type="text" id="subredditInput" placeholder="e.g., BuyItForLife">
                     </div>
@@ -231,7 +254,6 @@
     let currentOffset = 0;
     let currentCategory = '';
     let currentSubreddit = '';
-    let currentUsecase = '';
     let currentSpecFilters = {};
     let chartInstance = null;
     let activityInterval = null;
@@ -383,9 +405,9 @@
         });
     }
 
-    // ----- Filters sidebar -----
+    // ----- Filters sidebar (removed API key header) -----
     async function loadFilters() {
-        const res = await fetch(`${API_BASE}/filters`, { headers: { "X-API-Key": API_KEY } });
+        const res = await fetch(`${API_BASE}/filters`);
         const filters = await res.json();
         const container = document.getElementById('specFilters');
         container.innerHTML = '';
@@ -404,7 +426,6 @@
             `;
             container.appendChild(section);
             
-            // Attach change event to reload grid
             const select = section.querySelector('select');
             select.addEventListener('change', () => {
                 if (select.value) {
@@ -416,7 +437,6 @@
             });
         }
         
-        // Also handle clear filters button
         document.getElementById('clearFiltersBtn').addEventListener('click', () => {
             currentSpecFilters = {};
             document.querySelectorAll('#specFilters select').forEach(sel => sel.value = '');
@@ -424,7 +444,7 @@
         });
     }
 
-    // ----- Recent activity feed (auto‑refresh) -----
+    // ----- Recent activity feed -----
     async function loadRecentActivity() {
         try {
             const res = await fetch(`${API_BASE}/recent_activity?limit=5`);
@@ -464,7 +484,7 @@
         } catch (e) { console.error('Review of week error', e); }
     }
 
-    // ----- Fetch rankings with current filters -----
+    // ----- Fetch rankings with current filters (no usecase) -----
     async function fetchRankings(category, subreddit, offset, limit) {
         let url = `${API_BASE}/rankings?limit=${limit}&offset=${offset}`;
         if (category) url += `&category=${category}`;
@@ -485,7 +505,7 @@
         return data.recommendations || [];
     }
 
-    // ----- Grid rendering -----
+    // ----- Grid rendering (fixed review count) -----
     function renderProducts(rankings, isAppend = false) {
         const container = document.getElementById('productsContainer');
         if (!rankings.length && !isAppend) { container.innerHTML = '<div class="error">😕 No products found.</div>'; return; }
@@ -494,7 +514,11 @@
             const item = rankings[i];
             const p = item.product || {};
             const score = Math.round((item.sentiment_score || 0) * 100);
-            const trending = (item.product && item.product.trending) ? '<span class="trending-badge">🔥 Trending</span>' : '';
+            const trending = (p.trending) ? '<span class="trending-badge">🔥 Trending</span>' : '';
+            // Use review_count from API if available, otherwise sum positive+negative
+            const totalReviews = (item.review_count !== undefined && item.review_count !== null) 
+                ? item.review_count 
+                : ((item.positive_count || 0) + (item.negative_count || 0));
             html += `
                 <div class="product-card" data-id="${p.id}">
                     ${trending}
@@ -502,7 +526,7 @@
                     <img class="product-img" src="${p.image_url || 'https://via.placeholder.com/300x180?text=📸'}" onerror="this.src='https://via.placeholder.com/300x180?text=📸'">
                     <div class="product-info">
                         <div class="product-title"><strong>${escapeHtml(p.brand || '')}</strong> ${escapeHtml(p.model_name || '')}<span class="rank-badge">#${item.rank}</span></div>
-                        <div class="sentiment-badge">👍 ${score}% positive (${item.positive_count + item.negative_count} reviews)</div>
+                        <div class="sentiment-badge">👍 ${score}% positive (${totalReviews} reviews)</div>
                     </div>
                 </div>
             `;
@@ -525,45 +549,29 @@
     async function loadMore() {
         currentOffset += LIMIT;
         let rankings;
-        if (currentUsecase && currentUsecase !== 'general') {
-            const recs = await fetchUsecase(currentUsecase);
-            const start = currentOffset;
-            const end = start + LIMIT;
-            rankings = recs.slice(start, end);
-            renderProducts(rankings, true);
-            if (end >= recs.length) document.getElementById('loadMoreBtn').style.display = 'none';
-        } else {
-            const data = await fetchRankings(currentCategory, currentSubreddit, currentOffset, LIMIT);
-            rankings = data.rankings || [];
-            renderProducts(rankings, true);
-            if (rankings.length < LIMIT) document.getElementById('loadMoreBtn').style.display = 'none';
-        }
+        // No usecase handling for main grid anymore – only rankings
+        const data = await fetchRankings(currentCategory, currentSubreddit, currentOffset, LIMIT);
+        rankings = data.rankings || [];
+        renderProducts(rankings, true);
+        if (rankings.length < LIMIT) document.getElementById('loadMoreBtn').style.display = 'none';
     }
 
     async function loadGrid() {
         currentCategory = document.getElementById('categorySelect').value;
         currentSubreddit = document.getElementById('subredditInput').value.trim() || null;
-        currentUsecase = document.getElementById('usecaseSelect').value;
         currentOffset = 0;
         document.getElementById('productsContainer').innerHTML = '<div class="loading">✨ Loading...</div>';
         document.getElementById('loadMoreBtn').style.display = 'block';
         try {
-            if (currentUsecase && currentUsecase !== 'general') {
-                const recs = await fetchUsecase(currentUsecase);
-                const initial = recs.slice(0, LIMIT);
-                renderProducts(initial, false);
-                if (recs.length <= LIMIT) document.getElementById('loadMoreBtn').style.display = 'none';
-            } else {
-                const data = await fetchRankings(currentCategory, currentSubreddit, currentOffset, LIMIT);
-                renderProducts(data.rankings || [], false);
-                if (data.rankings.length < LIMIT) document.getElementById('loadMoreBtn').style.display = 'none';
-            }
+            const data = await fetchRankings(currentCategory, currentSubreddit, currentOffset, LIMIT);
+            renderProducts(data.rankings || [], false);
+            if (data.rankings.length < LIMIT) document.getElementById('loadMoreBtn').style.display = 'none';
         } catch (err) {
             document.getElementById('productsContainer').innerHTML = `<div class="error">⚠️ ${err.message}</div>`;
         }
     }
 
-    // ----- Personalised "Best for you" -----
+    // ----- Personalised "Best for you" (unchanged) -----
     async function showPersonalised(usecase) {
         const container = document.getElementById('personalisedResults');
         container.innerHTML = '<div class="loading">⏳ Loading personalised picks...</div>';
@@ -618,7 +626,7 @@
         document.getElementById('compareModal').classList.remove('hidden');
     }
 
-    // ----- Detail view with product image -----
+    // ----- Detail view with fixed review count and aligned badges -----
     async function fetchProductDetails(productId) {
         const res = await fetch(`${API_BASE}/product/${productId}`);
         if (!res.ok) throw new Error('Product not found');
@@ -692,9 +700,11 @@
 
     function renderDetail(product, reviews, aspects) {
         const score = Math.round((product.sentiment_score || 0) * 100);
-        const totalReviews = (product.positive_count||0)+(product.negative_count||0);
-        const trending = isTrending(reviews) ? '<span class="trending-badge" style="position:relative; display:inline-block; margin-left:0.5rem;">🔥 Trending</span>' : '';
-        const verified = hasVerifiedSubreddit(reviews) ? '<span class="verified-badge">✅ Reddit Verified</span>' : '';
+        const totalReviews = (product.review_count !== undefined && product.review_count !== null) 
+            ? product.review_count 
+            : ((product.positive_count||0)+(product.negative_count||0));
+        const trending = isTrending(reviews) ? '<span class="trending-badge-inline">🔥 Trending</span>' : '';
+        const verified = hasVerifiedSubreddit(reviews) ? '<span class="verified-badge-inline">✅ Reddit Verified</span>' : '';
         const heatmapHtml = renderSubredditHeatmap(reviews);
         const pros = aspects.filter(a => a.sentiment === 'positive');
         const cons = aspects.filter(a => a.sentiment === 'negative');
@@ -736,11 +746,14 @@
             <div class="product-detail-layout">
                 ${imageHtml}
                 <div class="product-detail-header">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <h2>${escapeHtml(product.brand)} ${escapeHtml(product.model_name)} ${trending} ${verified}</h2>
+                    <div class="title-badge-row">
+                        <h2>${escapeHtml(product.brand)} ${escapeHtml(product.model_name)}</h2>
+                        ${trending} ${verified}
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+                        <div class="sentiment-badge">⭐ ${score}% positive (${totalReviews} reviews)</div>
                         <div><button class="share-btn" onclick="navigator.clipboard.writeText('${shareUrl}'); alert('Link copied!')">🔗 Share</button> <span class="reddit-badge">${badge}</span></div>
                     </div>
-                    <div class="sentiment-badge">⭐ ${score}% positive (${totalReviews} reviews)</div>
                 </div>
             </div>
             <canvas id="trendChart"></canvas>
@@ -751,7 +764,6 @@
         document.getElementById('detailContent').innerHTML = html;
         loadTrendChart(product.id);
 
-        // Attach vote buttons
         document.querySelectorAll('.vote-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -760,7 +772,6 @@
                 voteReview(reviewId, vote, btn.parentElement);
             });
         });
-        // Attach show more / less for reviews
         document.querySelectorAll('.show-more-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const targetId = btn.dataset.id;
@@ -774,7 +785,6 @@
                 }
             });
         });
-        // Reddit preview if available
         if (reviews.length && reviews[0].reddit_url) {
             fetchRedditPreview(reviews[0].reddit_url).then(preview => {
                 if (preview) {
@@ -864,7 +874,6 @@
         loadGrid();
     });
 
-    // Start periodic refresh for activity feed (every 60 seconds)
     loadRecentActivity();
     loadReviewOfWeek();
     loadFilters();
