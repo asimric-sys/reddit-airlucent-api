@@ -2,875 +2,283 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Real Reddit Reviews – Live Product Sentiment</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Reddit Reviews – Coway Airmega AP‑1512HH Mighty</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        * { box-sizing: border-box; }
-        :root {
-            --bg: #fff7f0;
-            --card-bg: #ffffff;
-            --text-primary: #4a3b2c;
-            --text-secondary: #7a6b5a;
-            --border: #f0e4d0;
-            --btn-bg: #f39c12;
-            --btn-hover: #e67e22;
-            --pros-bg: #fff2e0;
-            --cons-bg: #ffe4e0;
-            --filter-bg: #fff0e0;
-            --trend-line: #f39c12;
-            --verified-badge: #22c55e;
-        }
-        body.dark {
-            --bg: #2c2a2a;
-            --card-bg: #3a3838;
-            --text-primary: #f5e6d3;
-            --text-secondary: #d4c4b0;
-            --border: #5a4a3a;
-            --btn-bg: #e67e22;
-            --btn-hover: #f39c12;
-            --pros-bg: #4a3b2c;
-            --cons-bg: #5a2c2c;
-            --filter-bg: #4a3b2c;
-            --trend-line: #f39c12;
-            --verified-badge: #4ade80;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
         body {
-            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-            background: var(--bg);
-            margin: 0;
-            padding: 2rem 1rem;
-            transition: background 0.3s;
-            color: var(--text-primary);
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, sans-serif;
+            background: #f8f9fa;
+            color: #1e2a3e;
+            padding: 1.5rem;
+            transition: background 0.2s, color 0.2s;
         }
-        .widget-container {
-            max-width: 1400px;
+        body.dark {
+            background: #121212;
+            color: #e2e8f0;
+        }
+        .container {
+            max-width: 1000px;
             margin: 0 auto;
-            background: var(--card-bg);
-            border-radius: 28px;
-            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
-            overflow: hidden;
         }
         .header {
-            background: #f39c12;
-            padding: 1.5rem 2rem;
-            color: white;
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: baseline;
             flex-wrap: wrap;
             gap: 1rem;
-        }
-        .header h1 { margin: 0; font-size: 2rem; display: inline-flex; align-items: center; gap: 10px; }
-        .theme-toggle { background: rgba(255,255,255,0.2); border: none; border-radius: 60px; padding: 0.4rem 1rem; font-size: 0.9rem; cursor: pointer; color: white; }
-        .filters { display: flex; flex-wrap: wrap; gap: 1rem; padding: 1.2rem 2rem; background: var(--filter-bg); border-bottom: 1px solid var(--border); align-items: flex-end; }
-        .filter-group { display: flex; flex-direction: column; gap: 0.3rem; }
-        .filter-group label { font-weight: 600; font-size: 0.7rem; text-transform: uppercase; color: var(--text-secondary); }
-        select, input, button { padding: 0.6rem 1.2rem; border-radius: 40px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-primary); font-size: 0.9rem; cursor: pointer; }
-        button { background: var(--btn-bg); color: white; border: none; }
-        button:hover { background: var(--btn-hover); transform: translateY(-2px); }
-        .compare-bar { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 2rem; background: var(--filter-bg); border-bottom: 1px solid var(--border); }
-        .best-for-you { padding: 1rem 2rem; background: var(--filter-bg); border-bottom: 1px solid var(--border); }
-        .usecase-buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
-        .usecase-btn { background: var(--btn-bg); color: white; padding: 0.3rem 0.8rem; font-size: 0.8rem; border-radius: 40px; cursor: pointer; border: none; }
-        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 2rem; padding: 2rem; animation: fadeIn 0.4s ease; }
-        .product-card { background: var(--card-bg); border-radius: 28px; overflow: hidden; cursor: pointer; transition: all 0.3s; border: 1px solid var(--border); position: relative; }
-        .product-card:hover { transform: translateY(-6px); box-shadow: 0 20px 35px -12px rgba(0,0,0,0.2); }
-        .trending-badge { position: absolute; top: 10px; right: 10px; background: #ff4500; color: white; padding: 0.2rem 0.6rem; border-radius: 40px; font-size: 0.7rem; font-weight: bold; z-index: 2; }
-        .product-img { width: 100%; height: 180px; object-fit: cover; background: #f1f5f9; }
-        .product-info { padding: 1.2rem; }
-        .product-title { font-weight: 700; display: flex; justify-content: space-between; }
-        .rank-badge { background: var(--pros-bg); border-radius: 40px; padding: 0.2rem 0.7rem; font-size: 0.7rem; }
-        .sentiment-badge { display: inline-block; background: var(--pros-bg); padding: 0.25rem 0.8rem; border-radius: 30px; font-size: 0.8rem; margin-top: 0.5rem; }
-        .load-more { display: flex; justify-content: center; margin: 1rem 0 2rem; }
-        .detail-view { padding: 2rem; }
-        .back-link { cursor: pointer; color: var(--btn-bg); margin-bottom: 1rem; display: inline-block; }
-        .product-detail-layout {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 2rem;
             margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #e2e8f0;
         }
-        .product-detail-image {
-            flex: 0 0 200px;
+        .dark .header {
+            border-bottom-color: #2d3748;
         }
-        .product-detail-image img {
-            width: 100%;
-            border-radius: 20px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #ff4500, #ff8c00);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
         }
-        .product-detail-header {
-            flex: 1;
-        }
-        .title-badge-row {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 0.75rem;
-            margin-bottom: 0.5rem;
-        }
-        .title-badge-row h2 {
-            margin: 0;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-        .trending-badge-inline, .verified-badge-inline {
-            display: inline-flex;
-            align-items: center;
+        .badge {
             background: #ff4500;
             color: white;
-            padding: 0.2rem 0.7rem;
-            border-radius: 40px;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        .theme-toggle {
+            background: none;
+            border: 1px solid #cbd5e1;
+            border-radius: 2rem;
+            padding: 0.4rem 1rem;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+            color: inherit;
+        }
+        .dark .theme-toggle {
+            border-color: #4a5568;
+        }
+        .stats {
+            background: #fff;
+            border-radius: 1rem;
+            padding: 0.75rem 1.25rem;
+            margin-bottom: 1.5rem;
+            display: inline-block;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .dark .stats {
+            background: #1e293b;
+        }
+        .review-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+        .review-card {
+            background: white;
+            border-radius: 1.25rem;
+            padding: 1.25rem;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            transition: transform 0.1s ease;
+            border: 1px solid #eef2f6;
+        }
+        .dark .review-card {
+            background: #1e293b;
+            border-color: #334155;
+        }
+        .review-header {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+            font-size: 0.85rem;
+        }
+        .username {
+            font-weight: 700;
+            color: #ff4500;
+        }
+        .subreddit {
+            background: #f1f5f9;
+            padding: 0.2rem 0.6rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+        }
+        .dark .subreddit {
+            background: #334155;
+        }
+        .timestamp {
+            color: #64748b;
+            font-size: 0.75rem;
+        }
+        .review-text {
+            margin: 0.75rem 0;
+            line-height: 1.5;
+            word-break: break-word;
+            white-space: pre-wrap;
+        }
+        .reddit-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.8rem;
+            color: #ff4500;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .reddit-link:hover {
+            text-decoration: underline;
+        }
+        .loading, .error, .no-reviews {
+            text-align: center;
+            padding: 3rem;
+            background: white;
+            border-radius: 1.5rem;
+        }
+        .dark .loading, .dark .error, .dark .no-reviews {
+            background: #1e293b;
+        }
+        footer {
+            margin-top: 2rem;
+            text-align: center;
             font-size: 0.7rem;
-            font-weight: bold;
-            margin-left: 0.25rem;
-            vertical-align: middle;
+            color: #94a3b8;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 1.5rem;
         }
-        .verified-badge-inline {
-            background: var(--verified-badge);
+        @media (max-width: 640px) {
+            body { padding: 1rem; }
+            .review-card { padding: 1rem; }
         }
-        .pros-cons-grid { display: flex; flex-wrap: wrap; gap: 2rem; margin: 2rem 0; }
-        .pro-section, .con-section { flex: 1; }
-        .pro-item, .con-item { background: var(--card-bg); border-radius: 24px; padding: 1rem; margin-bottom: 1rem; border-left: 4px solid; }
-        .pro-item { border-left-color: #f39c12; }
-        .con-item { border-left-color: #e67e22; }
-        .quote-list { margin-top: 0.5rem; padding-left: 1rem; font-size: 0.9rem; color: var(--text-secondary); }
-        .quote-list p { margin: 0.3rem 0; font-style: italic; }
-        .review-card { border-bottom: 1px solid var(--border); padding: 1rem 0; }
-        .review-meta { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.3rem; display: flex; justify-content: space-between; align-items: center; }
-        .vote-buttons { display: flex; gap: 0.5rem; }
-        .vote-btn { background: none; border: none; font-size: 1.1rem; cursor: pointer; padding: 0 0.2rem; }
-        .helpful-score { font-size: 0.8rem; color: var(--text-secondary); margin-left: 0.5rem; }
-        .review-text { margin: 0.5rem 0; overflow-wrap: break-word; }
-        .show-more-btn, .preview-toggle-btn { background: none; border: none; color: var(--btn-bg); cursor: pointer; font-size: 0.8rem; padding: 0; margin-top: 0.3rem; }
-        .related-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem; }
-        .related-card { background: var(--card-bg); border-radius: 20px; padding: 0.8rem; cursor: pointer; border: 1px solid var(--border); }
-        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; }
-        .modal-content { background: var(--card-bg); border-radius: 28px; max-width: 90%; max-height: 80%; overflow: auto; padding: 2rem; width: 1000px; }
-        .modal table { width: 100%; border-collapse: collapse; }
-        .modal th, .modal td { padding: 0.5rem; text-align: left; border-bottom: 1px solid var(--border); }
-        .modal td a { color: var(--btn-bg); text-decoration: none; }
-        .share-btn, .reddit-badge, .verified-badge { background: var(--pros-bg); border-radius: 40px; padding: 0.2rem 0.7rem; font-size: 0.7rem; display: inline-block; margin-right: 0.5rem; color: var(--text-primary); }
-        .reddit-badge { background: #ff4500; color: white; }
-        .verified-badge { background: var(--verified-badge); color: white; }
-        canvas { max-height: 300px; width: 100%; margin: 1rem 0; }
-        .heatmap-container { background: var(--filter-bg); padding: 1rem; border-radius: 20px; margin: 1rem 0; }
-        .heatmap-bar { display: flex; align-items: center; gap: 0.5rem; margin: 0.3rem 0; }
-        .heatmap-label { width: 150px; font-size: 0.8rem; }
-        .heatmap-fill { background: var(--btn-bg); height: 20px; border-radius: 10px; }
-        .reddit-preview { background: var(--filter-bg); padding: 1rem; border-radius: 20px; margin: 1rem 0; }
-        .activity-feed { background: var(--filter-bg); border-radius: 20px; padding: 1rem; margin: 0 2rem 1rem 2rem; }
-        .week-review-banner { background: var(--btn-bg); color: white; padding: 0.8rem 1rem; border-radius: 40px; margin: 0 2rem 1rem 2rem; text-align: center; cursor: pointer; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        footer { background: var(--card-bg); text-align: center; padding: 1rem; font-size: 0.75rem; border-top: 1px solid var(--border); }
-        @media (max-width: 768px) { .filters-sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); } .main-content { flex-direction: column; } .filters-top { flex-direction: column; align-items: stretch; } .product-detail-layout { flex-direction: column; align-items: center; } .product-detail-image { max-width: 200px; } }
-        .hidden { display: none; }
     </style>
 </head>
 <body>
-<div class="widget-container">
+<div class="container">
     <div class="header">
-        <h1>📢 Real Reddit Reviews <span>🔥</span></h1>
+        <div>
+            <h1>📢 Reddit Reviews</h1>
+            <div style="font-size: 0.85rem; margin-top: 0.25rem;">Coway Airmega AP‑1512HH Mighty</div>
+        </div>
         <button class="theme-toggle" id="themeToggle">🌙 Dark mode</button>
     </div>
 
-    <div id="gridView">
-        <div class="week-review-banner" id="weekReviewBanner" style="display: none;">🏆 Review of the week: <span id="weekReviewText"></span></div>
-        <div class="activity-feed" id="activityFeed">⏳ Loading recent activity...</div>
-        <div class="main-content">
-            <div class="filters-sidebar" id="filterSidebar">
-                <h3>🔍 Filter by specs</h3>
-                <div id="specFilters"></div>
-                <button id="clearFiltersBtn" style="width:100%; margin-top:1rem;">Clear all filters</button>
-            </div>
-            <div class="right-col">
-                <div class="filters-top">
-                    <div class="filter-group">
-                        <label>📂 Category</label>
-                        <select id="categorySelect">
-                            <option value="">All</option>
-                            <option value="air-purifier">Air Purifiers</option>
-                            <option value="humidifier">Humidifiers</option>
-                            <option value="air-conditioner">Portable ACs</option>
-                            <option value="smart-thermostat">Smart Thermostats</option>
-                            <option value="air-quality-monitor">Air Quality Monitors</option>
-                            <option value="whole-house-dehumidifier">Whole‑House Dehumidifiers</option>
-                            <option value="portable-dehumidifier">Portable Dehumidifiers</option>
-                            <option value="ventilation-fan-hrv-erv">Ventilation Fans (HRV/ERV)</option>
-                            <option value="smart-vent">Smart Vents</option>
-                            <option value="air-filter">Air Filters</option>
-                            <option value="co-detector">CO Detectors</option>
-                            <option value="ceiling-fan">Ceiling Fans</option>
-                            <option value="space-heater">Space Heaters</option>
-                            <option value="ductless-mini-split">Ductless Mini‑Splits</option>
-                            <option value="evaporative-cooler">Evaporative Coolers</option>
-                            <option value="uv-air-purifier">UV Air Purifiers</option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <label>🎯 Subreddit</label>
-                        <input type="text" id="subredditInput" placeholder="e.g., BuyItForLife">
-                    </div>
-                    <div class="filter-group">
-                        <label>&nbsp;</label>
-                        <button id="runBtn">✨ Apply filters</button>
-                    </div>
-                </div>
-                <div class="best-for-you">
-                    <strong>🤔 Best for you?</strong> <span style="font-size:0.8rem;">Select your main concern:</span>
-                    <div id="usecaseButtonsContainer" class="usecase-buttons"></div>
-                    <div id="personalisedResults" style="margin-top: 1rem;"></div>
-                </div>
-                <div class="compare-bar">
-                    <span>Select products to compare (2‑3)</span>
-                    <button id="compareBtn">🔍 Compare Selected</button>
-                </div>
-                <div id="productsContainer" class="product-grid"><div class="loading">⏳ Loading products...</div></div>
-                <div class="load-more"><button id="loadMoreBtn">Load More</button></div>
-            </div>
-        </div>
+    <div id="statsArea" class="stats">Loading reviews…</div>
+    <div id="reviewsContainer" class="review-list">
+        <div class="loading">⏳ Fetching reviews from Supabase…</div>
     </div>
-
-    <div id="detailView" style="display: none;" class="detail-view">
-        <div class="back-link" id="backToGridBtn">← Back to rankings</div>
-        <div id="detailContent">Loading product details...</div>
-        <div id="relatedProducts"></div>
-    </div>
-
-    <div id="compareModal" class="modal hidden">
-        <div class="modal-content">
-            <span id="closeModal" style="float:right; cursor:pointer;">&times;</span>
-            <div id="comparisonTable"></div>
-        </div>
-    </div>
-    <footer>💬 Data from Reddit • Updated daily</footer>
+    <footer>Data from Reddit • Updated daily • 🔗 Links point to original Reddit comments</footer>
 </div>
 
 <script>
-    const API_BASE = 'https://reddit-airlucent-api-production.up.railway.app';
-    const LIMIT = 12;
-    let currentOffset = 0;
-    let currentCategory = '';
-    let currentSubreddit = '';
-    let currentSpecFilters = {};
-    let chartInstance = null;
-    let activityInterval = null;
-    const TRUSTED_SUBREDDITS = ['BuyItForLife', 'HomeImprovement', 'AirPurifiers', 'HVAC', 'Home', 'GoodValue', 'BIFL'];
+    // Supabase configuration (public anon key – safe for client‑side)
+    const SUPABASE_URL = 'https://poiepslpqrtlqkuzcoph.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBvaWVwc2xwcXJ0bHFrdXpjb3BoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2NDQ1NjgsImV4cCI6MjA5NTIyMDU2OH0.Bt-DrWYRtJB-d7yDBjD-CdYQb8oVV3g_-n5BjZEYnME';
+    
+    // Product ID for Coway Airmega AP‑1512HH Mighty (the one with 348 reviews)
+    const PRODUCT_ID = 'a9c70ec4-41d5-47a3-a58d-3b6cc5e4c9fe';
 
-    const useCaseMap = {
-        'air-purifier': [
-            { label: '🚬 Smoke & Odor', value: 'smoke' },
-            { label: '🐾 Pets & Dander', value: 'pets' },
-            { label: '🤧 Allergies & Dust', value: 'allergies' },
-            { label: '🔇 Quiet / Bedroom', value: 'quiet' },
-            { label: '🏠 Large Room', value: 'large-room' }
-        ],
-        'humidifier': [
-            { label: '💧 Dry Air', value: 'dry-air' },
-            { label: '🏠 Large Room', value: 'large-room' },
-            { label: '👶 Baby / Nursery', value: 'baby' },
-            { label: '🔇 Quiet', value: 'quiet' },
-            { label: '🤧 Allergies', value: 'allergies' }
-        ],
-        'air-conditioner': [
-            { label: '❄️ Cooling', value: 'cooling' },
-            { label: '⚡ Energy Efficiency', value: 'energy-efficiency' },
-            { label: '🔇 Quiet', value: 'quiet' },
-            { label: '🏠 Large Room', value: 'large-room' },
-            { label: '🎒 Portable', value: 'portable' }
-        ],
-        'smart-thermostat': [
-            { label: '💵 Energy Saving', value: 'energy-saving' },
-            { label: '📱 Remote Control', value: 'remote-control' },
-            { label: '🧠 Learning', value: 'learning' },
-            { label: '🎤 Voice Control', value: 'voice-control' },
-            { label: '🏠 Multi‑Zone', value: 'multi-zone' }
-        ],
-        'air-quality-monitor': [
-            { label: '🌫️ CO₂', value: 'co2' },
-            { label: '💨 PM2.5', value: 'pm25' },
-            { label: '🧪 VOC', value: 'voc' },
-            { label: '☢️ Radon', value: 'radon' },
-            { label: '🏠 Smart Home', value: 'smart-home' }
-        ],
-        'whole-house-dehumidifier': [
-            { label: '🏚️ Basement', value: 'basement' },
-            { label: '🏠 Large Space', value: 'large-space' },
-            { label: '🔇 Quiet', value: 'quiet' },
-            { label: '⚡ Energy Efficient', value: 'energy-efficiency' },
-            { label: '📦 Portable', value: 'portable' }
-        ],
-        'portable-dehumidifier': [
-            { label: '🏚️ Basement', value: 'basement' },
-            { label: '🏠 Large Space', value: 'large-space' },
-            { label: '🔇 Quiet', value: 'quiet' },
-            { label: '⚡ Energy Efficient', value: 'energy-efficiency' },
-            { label: '📦 Portable', value: 'portable' }
-        ],
-        'ventilation-fan-hrv-erv': [
-            { label: '🔇 Quiet', value: 'quiet' },
-            { label: '🔄 Energy Recovery', value: 'energy-recovery' },
-            { label: '🌬️ Fresh Air', value: 'fresh-air' },
-            { label: '💧 Humidity Control', value: 'humidity-control' },
-            { label: '📱 Smart Control', value: 'smart-control' }
-        ],
-        'smart-vent': [
-            { label: '⚖️ Room Balancing', value: 'room-balancing' },
-            { label: '🏠 Smart Home', value: 'smart-home' },
-            { label: '💵 Energy Savings', value: 'energy-savings' },
-            { label: '🌡️ Zoned Comfort', value: 'zoned-comfort' },
-            { label: '📱 Remote Control', value: 'remote-control' }
-        ],
-        'air-filter': [
-            { label: '📊 MERV Rating', value: 'merv' },
-            { label: '💧 Washable', value: 'washable' },
-            { label: '🦠 HEPA', value: 'hepa' },
-            { label: '🌬️ Low Pressure Drop', value: 'low-pressure-drop' },
-            { label: '🤧 Allergy', value: 'allergy' }
-        ],
-        'co-detector': [
-            { label: '🔋 Battery Life', value: 'battery-life' },
-            { label: '📱 Smart Alerts', value: 'smart-alerts' },
-            { label: '🗣️ Voice Alerts', value: 'voice-alerts' },
-            { label: '📦 Portable', value: 'portable' },
-            { label: '☣️ Carbon Monoxide', value: 'carbon-monoxide' }
-        ],
-        'ceiling-fan': [
-            { label: '🔇 Quiet', value: 'quiet' },
-            { label: '⚡ DC Motor', value: 'dc-motor' },
-            { label: '📱 Remote Control', value: 'remote-control' },
-            { label: '🏠 Smart Home', value: 'smart-home' },
-            { label: '🌀 Large Blades', value: 'large-blades' }
-        ],
-        'space-heater': [
-            { label: '📦 Portable', value: 'portable' },
-            { label: '⚡ Energy Efficient', value: 'energy-efficiency' },
-            { label: '🔇 Quiet', value: 'quiet' },
-            { label: '🛡️ Safety Features', value: 'safety' },
-            { label: '📱 Smart Control', value: 'smart-control' }
-        ],
-        'ductless-mini-split': [
-            { label: '🔄 Inverter', value: 'inverter' },
-            { label: '🔇 Quiet', value: 'quiet' },
-            { label: '⚡ Efficiency', value: 'efficiency' },
-            { label: '📱 Remote Control', value: 'remote-control' },
-            { label: '❄️🔥 Heating/Cooling', value: 'heating-cooling' }
-        ],
-        'evaporative-cooler': [
-            { label: '📦 Portable', value: 'portable' },
-            { label: '⚡ Energy Efficient', value: 'energy-efficiency' },
-            { label: '💧 Water Tank Size', value: 'water-tank' },
-            { label: '🌬️ Cooling Capacity', value: 'cooling-capacity' },
-            { label: '🏜️ Low Humidity', value: 'low-humidity' }
-        ],
-        'uv-air-purifier': [
-            { label: '🦠 Germicidal', value: 'germicidal' },
-            { label: '🏠 HVAC Installation', value: 'hvac-installation' },
-            { label: '💡 Lamp Life', value: 'lamp-life' },
-            { label: '🔇 Quiet', value: 'quiet' },
-            { label: '🏢 Whole‑House', value: 'whole-house' }
-        ]
-    };
-    const defaultUseCases = [{ label: '✨ General recommendations', value: 'general' }];
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    function escapeHtml(str) {
-        if (!str) return '';
-        return str.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m] || m));
+    // Helper: convert ISO timestamp to relative time (e.g., "2 months ago")
+    function relativeTime(date) {
+        const now = new Date();
+        const diffSeconds = Math.floor((now - date) / 1000);
+        if (diffSeconds < 60) return 'just now';
+        const diffMinutes = Math.floor(diffSeconds / 60);
+        if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes === 1 ? '' : 's'} ago`;
+        const diffHours = Math.floor(diffMinutes / 60);
+        if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+        const diffDays = Math.floor(diffHours / 24);
+        if (diffDays < 30) return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+        const diffMonths = Math.floor(diffDays / 30);
+        if (diffMonths < 12) return `${diffMonths} month${diffMonths === 1 ? '' : 's'} ago`;
+        const diffYears = Math.floor(diffMonths / 12);
+        return `${diffYears} year${diffYears === 1 ? '' : 's'} ago`;
     }
 
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    async function fetchAndRenderReviews() {
+        const reviewsContainer = document.getElementById('reviewsContainer');
+        const statsArea = document.getElementById('statsArea');
+        
+        try {
+            // Fetch all reviews for this product, newest first
+            const { data, error, count } = await supabase
+                .from('reviews')
+                .select('*', { count: 'exact' })
+                .eq('product_id', PRODUCT_ID)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            if (!data || data.length === 0) {
+                reviewsContainer.innerHTML = '<div class="no-reviews">📭 No reviews found for this product.</div>';
+                statsArea.textContent = '0 reviews • Check back later';
+                return;
+            }
+
+            // Count positive/negative based on sentiment column (if any)
+            const positiveCount = data.filter(r => r.sentiment === 'positive').length;
+            const negativeCount = data.filter(r => r.sentiment === 'negative').length;
+            statsArea.textContent = `📊 ${data.length} total reviews • 👍 ${positiveCount} positive • 👎 ${negativeCount} negative`;
+
+            let html = '';
+            for (const review of data) {
+                const timestamp = review.created_at ? new Date(review.created_at) : null;
+                const timeStr = timestamp ? relativeTime(timestamp) : 'unknown date';
+                const subreddit = review.subreddit || 'reddit';
+                const username = review.username || 'Anonymous';
+                const verbatim = review.verbatim || 'No content';
+                const redditUrl = review.reddit_url || '#';
+                
+                html += `
+                    <div class="review-card">
+                        <div class="review-header">
+                            <div>
+                                <span class="username">${escapeHtml(username)}</span>
+                                <span class="subreddit">r/${escapeHtml(subreddit)}</span>
+                            </div>
+                            <span class="timestamp">🕒 ${escapeHtml(timeStr)}</span>
+                        </div>
+                        <div class="review-text">${escapeHtml(verbatim)}</div>
+                        <a href="${escapeHtml(redditUrl)}" target="_blank" rel="noopener noreferrer" class="reddit-link">🔗 View on Reddit →</a>
+                    </div>
+                `;
+            }
+            reviewsContainer.innerHTML = html;
+        } catch (err) {
+            console.error('Supabase error:', err);
+            reviewsContainer.innerHTML = `<div class="error">❌ Failed to load reviews: ${err.message}<br><br>🔧 Make sure RLS allows public SELECT on "reviews" table.</div>`;
+            statsArea.textContent = 'Error loading data';
+        }
+    }
+
+    // Dark mode toggle
     const themeToggle = document.getElementById('themeToggle');
     themeToggle.addEventListener('click', () => {
         document.body.classList.toggle('dark');
-        themeToggle.innerHTML = document.body.classList.contains('dark') ? '☀️ Light mode' : '🌙 Dark mode';
+        themeToggle.textContent = document.body.classList.contains('dark') ? '☀️ Light mode' : '🌙 Dark mode';
     });
 
-    function updateUsecaseButtons() {
-        const category = document.getElementById('categorySelect').value;
-        const container = document.getElementById('usecaseButtonsContainer');
-        let useCases = useCaseMap[category] || defaultUseCases;
-        container.innerHTML = '';
-        useCases.forEach(uc => {
-            const btn = document.createElement('button');
-            btn.className = 'usecase-btn';
-            btn.innerText = uc.label;
-            btn.dataset.usecase = uc.value;
-            btn.addEventListener('click', () => showPersonalised(uc.value));
-            container.appendChild(btn);
-        });
-    }
-
-    async function loadFilters() {
-        const res = await fetch(`${API_BASE}/filters`);
-        const filters = await res.json();
-        const container = document.getElementById('specFilters');
-        container.innerHTML = '';
-        
-        for (const [key, values] of Object.entries(filters)) {
-            if (!values.length) continue;
-            const section = document.createElement('div');
-            section.className = 'filter-section';
-            section.innerHTML = `
-                <h4>${key.replace(/_/g, ' ')}</h4>
-                <select id="filter_${key}" style="width:100%; padding:0.4rem; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-primary);">
-                    <option value="">Any</option>
-                    ${values.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}
-                </select>
-            `;
-            container.appendChild(section);
-            const select = section.querySelector('select');
-            select.addEventListener('change', () => {
-                if (select.value) currentSpecFilters[key] = select.value;
-                else delete currentSpecFilters[key];
-                loadGrid();
-            });
-        }
-        document.getElementById('clearFiltersBtn').addEventListener('click', () => {
-            currentSpecFilters = {};
-            document.querySelectorAll('#specFilters select').forEach(sel => sel.value = '');
-            loadGrid();
-        });
-    }
-
-    async function loadRecentActivity() {
-        try {
-            const res = await fetch(`${API_BASE}/recent_activity?limit=5`);
-            const data = await res.json();
-            const feed = document.getElementById('activityFeed');
-            if (!data.activity || data.activity.length === 0) {
-                feed.innerHTML = '📭 No recent activity';
-                return;
-            }
-            let html = '<strong>🔄 Recent Reddit activity</strong><div style="margin-top:0.5rem;">';
-            for (let act of data.activity) {
-                const prod = act.product || {};
-                const name = `${prod.brand || ''} ${prod.model_name || ''}`.trim() || 'Product';
-                html += `<div class="activity-item">📌 <strong>${escapeHtml(name)}</strong> – <em>${escapeHtml(act.snippet)}</em><br><small>r/${escapeHtml(act.subreddit || 'reddit')} • ${new Date(act.created_at).toLocaleString()}</small></div>`;
-            }
-            html += '</div>';
-            feed.innerHTML = html;
-        } catch (e) { console.error('Activity feed error', e); }
-    }
-
-    async function loadReviewOfWeek() {
-        try {
-            const res = await fetch(`${API_BASE}/review_of_week`);
-            const data = await res.json();
-            const banner = document.getElementById('weekReviewBanner');
-            const textSpan = document.getElementById('weekReviewText');
-            if (data.review && data.review.product) {
-                const prod = data.review.product;
-                const name = `${prod.brand || ''} ${prod.model_name || ''}`.trim();
-                textSpan.innerText = `${name}: “${data.review.snippet}” (👍 ${data.review.helpful_score || 0})`;
-                banner.style.display = 'block';
-                banner.onclick = () => showDetailView(data.review.product_id);
-            } else {
-                banner.style.display = 'none';
-            }
-        } catch (e) { console.error('Review of week error', e); }
-    }
-
-    async function fetchRankings(category, subreddit, offset, limit) {
-        let url = `${API_BASE}/rankings?limit=${limit}&offset=${offset}`;
-        if (category) url += `&category=${category}`;
-        if (subreddit) url += `&subreddit=${subreddit}`;
-        for (const [key, val] of Object.entries(currentSpecFilters)) {
-            url += `&spec_${key}=${encodeURIComponent(val)}`;
-        }
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-    }
-
-    async function fetchUsecase(usecase) {
-        if (!usecase || usecase === 'general') return [];
-        const res = await fetch(`${API_BASE}/usecase/${usecase}?limit=20`);
-        if (!res.ok) return [];
-        const data = await res.json();
-        return data.recommendations || [];
-    }
-
-    function renderProducts(rankings, isAppend = false) {
-        const container = document.getElementById('productsContainer');
-        if (!rankings.length && !isAppend) { container.innerHTML = '<div class="error">😕 No products found.</div>'; return; }
-        let html = '';
-        for (let i = 0; i < rankings.length; i++) {
-            const item = rankings[i];
-            const p = item.product || {};
-            const score = Math.round((item.sentiment_score || 0) * 100);
-            const trending = (p.trending) ? '<span class="trending-badge">🔥 Trending</span>' : '';
-            const totalReviews = (item.review_count !== undefined && item.review_count !== null) 
-                ? item.review_count 
-                : ((item.positive_count || 0) + (item.negative_count || 0));
-            html += `
-                <div class="product-card" data-id="${p.id}" data-review-count="${totalReviews}">
-                    ${trending}
-                    <div style="padding: 0.5rem 1rem 0;"><input type="checkbox" class="product-select" value="${p.id}" style="transform: scale(1.2);"></div>
-                    <img class="product-img" src="${p.image_url || 'https://via.placeholder.com/300x180?text=📸'}" onerror="this.src='https://via.placeholder.com/300x180?text=📸'">
-                    <div class="product-info">
-                        <div class="product-title"><strong>${escapeHtml(p.brand || '')}</strong> ${escapeHtml(p.model_name || '')}<span class="rank-badge">#${item.rank}</span></div>
-                        <div class="sentiment-badge">👍 ${score}% positive (${totalReviews} reviews)</div>
-                    </div>
-                </div>
-            `;
-        }
-        if (isAppend) {
-            container.insertAdjacentHTML('beforeend', html);
-        } else {
-            container.innerHTML = html;
-        }
-        document.querySelectorAll('.product-card').forEach(card => {
-            const checkbox = card.querySelector('.product-select');
-            const reviewCount = card.dataset.reviewCount;
-            card.addEventListener('click', (e) => {
-                if (e.target !== checkbox && !checkbox.contains(e.target)) {
-                    showDetailView(card.dataset.id, reviewCount);
-                }
-            });
-        });
-    }
-
-    async function loadMore() {
-        currentOffset += LIMIT;
-        const data = await fetchRankings(currentCategory, currentSubreddit, currentOffset, LIMIT);
-        const rankings = data.rankings || [];
-        renderProducts(rankings, true);
-        if (rankings.length < LIMIT) document.getElementById('loadMoreBtn').style.display = 'none';
-    }
-
-    async function loadGrid() {
-        currentCategory = document.getElementById('categorySelect').value;
-        currentSubreddit = document.getElementById('subredditInput').value.trim() || null;
-        currentOffset = 0;
-        document.getElementById('productsContainer').innerHTML = '<div class="loading">✨ Loading...</div>';
-        document.getElementById('loadMoreBtn').style.display = 'block';
-        try {
-            const data = await fetchRankings(currentCategory, currentSubreddit, currentOffset, LIMIT);
-            renderProducts(data.rankings || [], false);
-            if (data.rankings.length < LIMIT) document.getElementById('loadMoreBtn').style.display = 'none';
-        } catch (err) {
-            document.getElementById('productsContainer').innerHTML = `<div class="error">⚠️ ${err.message}</div>`;
-        }
-    }
-
-    async function showPersonalised(usecase) {
-        const container = document.getElementById('personalisedResults');
-        container.innerHTML = '<div class="loading">⏳ Loading personalised picks...</div>';
-        const recs = await fetchUsecase(usecase);
-        if (!recs.length) {
-            container.innerHTML = '<p>No products found for this need.</p>';
-            return;
-        }
-        let html = '<div style="display:flex; flex-wrap:wrap; gap:1rem;">';
-        for (let rec of recs.slice(0, 6)) {
-            const p = rec.product;
-            const score = Math.round((rec.score || 0) * 100);
-            html += `
-                <div class="product-card" style="width:200px; cursor:pointer;" data-id="${p.id}" data-review-count="${rec.review_count || 0}">
-                    <img class="product-img" src="${p.image_url || 'https://via.placeholder.com/200x120?text=📸'}" style="height:120px;">
-                    <div class="product-info">
-                        <div class="product-title"><strong>${escapeHtml(p.brand || '')}</strong> ${escapeHtml(p.model_name || '')}</div>
-                        <div class="sentiment-badge">👍 ${score}%</div>
-                    </div>
-                </div>
-            `;
-        }
-        html += '</div>';
-        container.innerHTML = html;
-        container.querySelectorAll('.product-card').forEach(card => {
-            const reviewCount = card.dataset.reviewCount;
-            card.addEventListener('click', () => showDetailView(card.dataset.id, reviewCount));
-        });
-    }
-
-    async function compareProducts() {
-        const selected = Array.from(document.querySelectorAll('.product-select:checked')).map(cb => cb.value);
-        if (selected.length < 2 || selected.length > 3) {
-            alert('Select 2 or 3 products to compare');
-            return;
-        }
-        const url = `${API_BASE}/compare?ids=${selected.join(',')}`;
-        const res = await fetch(url);
-        const data = await res.json();
-        if (data.error) { alert(data.error); return; }
-        let html = '<h3>Product Comparison</h3><table><th>Feature</th>';
-        for (let p of data.products) html += `<th>${escapeHtml(p.brand)} ${escapeHtml(p.model)}</th>`;
-        html += '<tr>';
-        html += `<tr><td>Sentiment Score</td>${data.products.map(p => `<td>${p.sentiment_score ? Math.round(p.sentiment_score*100) + '%' : 'N/A'}</td>`).join('')}</tr>`;
-        html += `<tr><td>Reviews (pos/neg)</td>${data.products.map(p => `<td>${p.positive_count} / ${p.negative_count}</td>`).join('')}</tr>`;
-        html += `<tr><td>Top Pros</td>${data.products.map(p => `<td>${p.pros.map(pr => `${pr.aspect} (${pr.count})`).join('<br>') || 'None'}</td>`).join('')}</tr>`;
-        html += `<tr><td>Top Cons</td>${data.products.map(p => `<td>${p.cons.map(cn => `${cn.aspect} (${cn.count})`).join('<br>') || 'None'}</td>`).join('')}</tr>`;
-        html += `<tr><td>Subreddits</td>${data.products.map(p => `<td>${p.subreddits.join(', ') || 'General'}</td>`).join('')}</tr>`;
-        html += `<tr><td>Product Page</td>${data.products.map(p => `<td><a href="#" onclick="showDetailView('${p.id}'); return false;">View details</a></td>`).join('')}</tr>`;
-        html += '</table>';
-        document.getElementById('comparisonTable').innerHTML = html;
-        document.getElementById('compareModal').classList.remove('hidden');
-    }
-
-    async function fetchProductDetails(productId) {
-        const res = await fetch(`${API_BASE}/product/${productId}`);
-        if (!res.ok) throw new Error('Product not found');
-        return res.json();
-    }
-
-    async function fetchTrend(productId) {
-        const res = await fetch(`${API_BASE}/trend/${productId}?months=12`);
-        return res.json();
-    }
-
-    async function fetchRedditPreview(url) {
-        if (!url) return null;
-        const jsonUrl = url.replace(/\/$/, '') + '.json';
-        try {
-            const res = await fetch(jsonUrl);
-            const data = await res.json();
-            const post = data[0].data.children[0].data;
-            return { title: post.title, body: post.selftext, subreddit: post.subreddit, score: post.score };
-        } catch(e) { return null; }
-    }
-
-    async function voteReview(reviewId, voteValue, element) {
-        try {
-            const res = await fetch(`${API_BASE}/vote`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ review_id: reviewId, vote: voteValue })
-            });
-            const result = await res.json();
-            if (result.new_score !== undefined) {
-                element.querySelector('.helpful-score').innerText = `(${result.new_score})`;
-            }
-        } catch (err) { console.error('Vote error', err); }
-    }
-
-    function isTrending(reviews) {
-        if (!reviews || !reviews.length) return false;
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        const recent = reviews.filter(r => new Date(r.created_at) >= sevenDaysAgo);
-        return recent.length > 2;
-    }
-
-    function hasVerifiedSubreddit(reviews) {
-        if (!reviews) return false;
-        for (let rev of reviews) {
-            if (rev.subreddit && TRUSTED_SUBREDDITS.includes(rev.subreddit)) return true;
-        }
-        return false;
-    }
-
-    function renderSubredditHeatmap(reviews) {
-        if (!reviews || !reviews.length) return '';
-        const counts = {};
-        for (let rev of reviews) {
-            const sub = rev.subreddit || 'unknown';
-            counts[sub] = (counts[sub] || 0) + 1;
-        }
-        const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0, 5);
-        if (!sorted.length) return '';
-        let html = '<div class="heatmap-container"><strong>🗺️ Subreddit heatmap</strong><div style="margin-top:0.5rem;">';
-        const maxCount = sorted[0][1];
-        for (let [sub, cnt] of sorted) {
-            const width = (cnt / maxCount) * 100;
-            html += `<div class="heatmap-bar"><span class="heatmap-label">r/${escapeHtml(sub)}</span><div class="heatmap-fill" style="width: ${width}%; background: var(--btn-bg);"></div><span style="margin-left:0.5rem; font-size:0.7rem;">${cnt}</span></div>`;
-        }
-        html += '</div></div>';
-        return html;
-    }
-
-    function renderDetail(product, reviews, aspects, providedReviewCount = null) {
-        const score = Math.round((product.sentiment_score || 0) * 100);
-        let totalReviews = providedReviewCount;
-        if (totalReviews === null || totalReviews === undefined) {
-            totalReviews = (product.review_count !== undefined && product.review_count !== null) 
-                ? product.review_count 
-                : ((product.positive_count||0)+(product.negative_count||0));
-        }
-        const trending = isTrending(reviews) ? '<span class="trending-badge-inline">🔥 Trending</span>' : '';
-        const verified = hasVerifiedSubreddit(reviews) ? '<span class="verified-badge-inline">✅ Reddit Verified</span>' : '';
-        const heatmapHtml = renderSubredditHeatmap(reviews);
-        const pros = aspects.filter(a => a.sentiment === 'positive');
-        const cons = aspects.filter(a => a.sentiment === 'negative');
-        let prosHtml = '', consHtml = '';
-        for (let p of pros) {
-            prosHtml += `<div class="pro-item"><h4>${escapeHtml(p.aspect_name)} <span>👍 ${p.positive_count}</span></h4><div class="quote-list">${p.quotes.map(q => `<p>“${escapeHtml(q)}”</p>`).join('')}</div></div>`;
-        }
-        for (let c of cons) {
-            consHtml += `<div class="con-item"><h4>${escapeHtml(c.aspect_name)} <span>👎 ${c.negative_count}</span></h4><div class="quote-list">${c.quotes.map(q => `<p>“${escapeHtml(q)}”</p>`).join('')}</div></div>`;
-        }
-
-        let reviewsHtml = '<h3>📝 Reddit Reviews</h3>';
-        for (let rev of reviews) {
-            const redditUrl = rev.reddit_url || `https://www.reddit.com/r/${rev.subreddit || 'reddit'}/search?q=${encodeURIComponent(rev.verbatim.slice(0,30))}`;
-            const shortText = rev.verbatim.length > 300 ? rev.verbatim.slice(0,300) + '…' : rev.verbatim;
-            const fullText = rev.verbatim;
-            const reviewId = `rev_${rev.id}`;
-            reviewsHtml += `
-                <div class="review-card">
-                    <div class="review-meta">
-                        <span>🧑‍💻 r/${escapeHtml(rev.subreddit || 'reddit')} • ${new Date(rev.created_at).toLocaleDateString()} <a href="${redditUrl}" target="_blank">🔗 View on Reddit</a></span>
-                        <div class="vote-buttons">
-                            <button class="vote-btn" data-review-id="${rev.id}" data-vote="1">👍</button>
-                            <button class="vote-btn" data-review-id="${rev.id}" data-vote="-1">👎</button>
-                            <span class="helpful-score">(${rev.helpful_score || 0})</span>
-                        </div>
-                    </div>
-                    <div id="${reviewId}" class="review-text">${escapeHtml(shortText)}</div>
-                    ${rev.verbatim.length > 300 ? `<button class="show-more-btn" data-id="${reviewId}" data-full="${escapeHtml(fullText)}" data-short="${escapeHtml(shortText)}">Show more</button>` : ''}
-                </div>
-            `;
-        }
-
-        const shareUrl = `${window.location.origin}?id=${product.id}`;
-        const badge = product.reddit_percentile ? (product.reddit_percentile >= 95 ? '🏆 Top 5%' : product.reddit_percentile >= 80 ? '🌟 Top 20%' : '✅ Popular') : '';
-        const imageHtml = product.image_url ? `<div class="product-detail-image"><img src="${product.image_url}" alt="${product.brand} ${product.model_name}"></div>` : '';
-
-        const html = `
-            <div class="product-detail-layout">
-                ${imageHtml}
-                <div class="product-detail-header">
-                    <div class="title-badge-row">
-                        <h2>${escapeHtml(product.brand)} ${escapeHtml(product.model_name)}</h2>
-                        ${trending} ${verified}
-                    </div>
-                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
-                        <div class="sentiment-badge">⭐ ${score}% positive (${totalReviews} reviews)</div>
-                        <div><button class="share-btn" onclick="navigator.clipboard.writeText('${shareUrl}'); alert('Link copied!')">🔗 Share</button> <span class="reddit-badge">${badge}</span></div>
-                    </div>
-                </div>
-            </div>
-            <canvas id="trendChart"></canvas>
-            ${heatmapHtml}
-            <div class="pros-cons-grid"><div class="pro-section"><h3>✅ Top Pros</h3>${prosHtml || '<p>No pros identified yet</p>'}</div><div class="con-section"><h3>❌ Top Cons</h3>${consHtml || '<p>No cons identified yet</p>'}</div></div>
-            ${reviewsHtml}
-        `;
-        document.getElementById('detailContent').innerHTML = html;
-        loadTrendChart(product.id);
-
-        document.querySelectorAll('.vote-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const reviewId = btn.dataset.reviewId;
-                const vote = parseInt(btn.dataset.vote);
-                voteReview(reviewId, vote, btn.parentElement);
-            });
-        });
-        document.querySelectorAll('.show-more-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const targetId = btn.dataset.id;
-                const textDiv = document.getElementById(targetId);
-                if (textDiv.innerText === btn.dataset.short) {
-                    textDiv.innerText = btn.dataset.full;
-                    btn.innerText = 'Show less';
-                } else {
-                    textDiv.innerText = btn.dataset.short;
-                    btn.innerText = 'Show more';
-                }
-            });
-        });
-        if (reviews.length && reviews[0].reddit_url) {
-            fetchRedditPreview(reviews[0].reddit_url).then(preview => {
-                if (preview) {
-                    const previewId = `preview_${Date.now()}`;
-                    const previewHtml = `
-                        <div class="reddit-preview">
-                            <strong>📌 Reddit Preview</strong><br>
-                            📌 ${escapeHtml(preview.title)}<br>
-                            <div id="${previewId}_short">💬 ${escapeHtml(preview.body.substring(0, 200))}...</div>
-                            <div id="${previewId}_full" style="display:none;">💬 ${escapeHtml(preview.body)}</div>
-                            <button class="preview-toggle-btn" data-id="${previewId}">Read full review</button>
-                            <br>👍 ${preview.score}
-                        </div>
-                    `;
-                    document.getElementById('detailContent').insertAdjacentHTML('beforeend', previewHtml);
-                    const btn = document.querySelector(`.preview-toggle-btn[data-id="${previewId}"]`);
-                    btn.addEventListener('click', () => {
-                        const shortDiv = document.getElementById(`${previewId}_short`);
-                        const fullDiv = document.getElementById(`${previewId}_full`);
-                        if (shortDiv.style.display !== 'none') {
-                            shortDiv.style.display = 'none';
-                            fullDiv.style.display = 'block';
-                            btn.innerText = 'Show less';
-                        } else {
-                            shortDiv.style.display = 'block';
-                            fullDiv.style.display = 'none';
-                            btn.innerText = 'Read full review';
-                        }
-                    });
-                }
-            });
-        }
-    }
-
-    async function loadTrendChart(productId) {
-        const data = await fetchTrend(productId);
-        const ctx = document.getElementById('trendChart').getContext('2d');
-        if (chartInstance) chartInstance.destroy();
-        chartInstance = new Chart(ctx, {
-            type: 'line',
-            data: { labels: data.history.map(h => h.date), datasets: [{ label: 'Sentiment Score', data: data.history.map(h => h.sentiment_score), borderColor: 'var(--trend-line)', fill: false }] },
-            options: { responsive: true, maintainAspectRatio: true }
-        });
-    }
-
-    async function showDetailView(productId, reviewCountFromCard = null) {
-        document.getElementById('gridView').style.display = 'none';
-        document.getElementById('detailView').style.display = 'block';
-        document.getElementById('detailContent').innerHTML = '<div class="loading">⏳ Loading...</div>';
-        try {
-            const data = await fetchProductDetails(productId);
-            // Use the passed review count (from grid card) if available, otherwise fallback to product data
-            renderDetail(data.product, data.reviews, data.aspects, reviewCountFromCard);
-            if (data.product.category) {
-                const related = await fetch(`${API_BASE}/rankings?category=${data.product.category}&limit=4`);
-                const relatedData = await related.json();
-                let relatedHtml = '<h3>🔗 Other products from same category</h3><div class="related-grid">';
-                for (let rel of (relatedData.rankings || [])) {
-                    if (rel.product.id === productId) continue;
-                    const relReviewCount = (rel.review_count !== undefined && rel.review_count !== null) ? rel.review_count : ((rel.positive_count || 0) + (rel.negative_count || 0));
-                    relatedHtml += `<div class="related-card" data-id="${rel.product.id}" data-review-count="${relReviewCount}"><strong>${escapeHtml(rel.product.brand)} ${escapeHtml(rel.product.model_name)}</strong><br>👍 ${Math.round((rel.sentiment_score||0)*100)}%</div>`;
-                }
-                relatedHtml += '</div>';
-                document.getElementById('relatedProducts').innerHTML = relatedHtml;
-                document.querySelectorAll('.related-card').forEach(card => {
-                    const rCount = card.dataset.reviewCount;
-                    card.addEventListener('click', () => showDetailView(card.dataset.id, rCount));
-                });
-            }
-        } catch(err) {
-            document.getElementById('detailContent').innerHTML = `<div class="error">${err.message}</div>`;
-        }
-    }
-
-    function showGridView() {
-        document.getElementById('detailView').style.display = 'none';
-        document.getElementById('gridView').style.display = 'block';
-        loadGrid();
-    }
-
-    document.getElementById('runBtn').addEventListener('click', () => { loadGrid(); });
-    document.getElementById('backToGridBtn').addEventListener('click', showGridView);
-    document.getElementById('compareBtn').addEventListener('click', compareProducts);
-    document.getElementById('loadMoreBtn').addEventListener('click', loadMore);
-    document.getElementById('closeModal').addEventListener('click', () => document.getElementById('compareModal').classList.add('hidden'));
-    window.addEventListener('click', (e) => { if (e.target === document.getElementById('compareModal')) document.getElementById('compareModal').classList.add('hidden'); });
-    document.getElementById('categorySelect').addEventListener('change', () => {
-        updateUsecaseButtons();
-        loadGrid();
-    });
-
-    loadRecentActivity();
-    loadReviewOfWeek();
-    loadFilters();
-    if (activityInterval) clearInterval(activityInterval);
-    activityInterval = setInterval(() => {
-        loadRecentActivity();
-        loadReviewOfWeek();
-    }, 60000);
-
-    updateUsecaseButtons();
-    loadGrid();
+    // Start
+    fetchAndRenderReviews();
 </script>
 </body>
 </html>
