@@ -937,28 +937,50 @@
     // ── Recent Activity Feed ──
     async function loadRecentActivity() {
         try {
-            const res = await fetch(`${API_BASE}/recent_activity?limit=5`);
+            // Fetch all products from rankings
+            const res = await fetch(`${API_BASE}/rankings?limit=100`);
             const data = await res.json();
+
+            // Collect all reviews from all products
+            const allReviews = [];
+            for (let item of (data.rankings || [])) {
+                const productRes = await fetch(`${API_BASE}/product/${item.product_id}`);
+                const productData = await productRes.json();
+                if (productData.reviews) {
+                    for (let rev of productData.reviews) {
+                        allReviews.push({
+                            ...rev,
+                            product: item.product,
+                            product_id: item.product_id
+                        });
+                    }
+                }
+            }
+
+            // Shuffle reviews randomly
+            const shuffled = allReviews.sort(() => Math.random() - 0.5);
+
             const feed = document.getElementById('activityFeed');
             const note = document.getElementById('activityRefreshNote');
             const now = new Date();
             note.textContent = `• last updated ${now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
 
-            if (!data.activity || data.activity.length === 0) {
-                feed.innerHTML = '<div style="color:var(--text-secondary); font-size:0.875rem; padding:0.25rem 0;">📭 No recent activity found.</div>';
+            if (!shuffled.length) {
+                feed.innerHTML = '<div style="color:var(--text-secondary); font-size:0.875rem; padding:0.25rem 0;">📭 No reviews found.</div>';
                 return;
             }
-            feed.innerHTML = data.activity.map(act => {
-                const prod = act.product || {};
+
+            feed.innerHTML = shuffled.slice(0, 5).map(rev => {
+                const prod = rev.product || {};
                 const name = `${prod.brand || ''} ${prod.model_name || ''}`.trim() || 'Product';
-                const time = new Date(act.created_at).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+                const time = new Date(rev.created_at).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
                 return `
                     <div class="activity-item">
                         <div class="activity-dot"></div>
                         <div class="activity-body">
-                            <div class="activity-product">${escapeHtml(name)}</div>
-                            <div class="activity-snippet">"${escapeHtml(act.snippet)}"</div>
-                            <div class="activity-meta">r/${escapeHtml(act.subreddit || 'reddit')} · ${time}</div>
+                            <div class="activity-product" style="cursor:pointer; color:var(--btn-bg);" onclick="showDetailView('${rev.product_id}')">${escapeHtml(name)} →</div>
+                            <div class="activity-snippet">"${escapeHtml((rev.verbatim || '').slice(0, 100))}"</div>
+                            <div class="activity-meta">r/${escapeHtml(rev.subreddit || 'reddit')} · ${time}</div>
                         </div>
                     </div>
                 `;
@@ -1211,15 +1233,17 @@
         const trending = isTrending(reviews) ? '<span class="trending-badge-inline">🔥 Trending</span>' : '';
         const verified = hasVerifiedSubreddit(reviews) ? '<span class="verified-badge-inline">✅ Reddit Verified</span>' : '';
         const heatmapHtml = renderSubredditHeatmap(reviews);
-        const pros = aspects.filter(a => a.sentiment === 'positive');
-        const cons = aspects.filter(a => a.sentiment === 'negative');
-        let prosHtml = '', consHtml = '';
-        for (let p of pros) {
-            prosHtml += `<div class="pro-item"><h4>${escapeHtml(p.aspect_name)} <span>👍 ${p.positive_count}</span></h4><div class="quote-list">${p.quotes.map(q => `<p>"${escapeHtml(q)}"</p>`).join('')}</div></div>`;
-        }
-        for (let c of cons) {
-            consHtml += `<div class="con-item"><h4>${escapeHtml(c.aspect_name)} <span>👎 ${c.negative_count}</span></h4><div class="quote-list">${c.quotes.map(q => `<p>"${escapeHtml(q)}"</p>`).join('')}</div></div>`;
-        }
+        const reviewSummaryHtml = `
+            <div style="background: var(--filter-bg); padding: 1rem; border-radius: var(--radius-md); margin: 1.5rem 0; border: 1px solid var(--border);">
+                <h3 style="margin-top: 0;">📊 Review Summary</h3>
+                <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
+                    <div><strong>${totalReviews}</strong> <span style="color: var(--text-secondary);">Total Reviews</span></div>
+                    <div><strong>${reviews.filter(r => r.sentiment === 'positive').length}</strong> <span style="color: var(--text-secondary);">Positive</span></div>
+                    <div><strong>${reviews.filter(r => r.sentiment === 'negative').length}</strong> <span style="color: var(--text-secondary);">Negative</span></div>
+                    <div><strong>${reviews.filter(r => r.sentiment === 'neutral').length}</strong> <span style="color: var(--text-secondary);">Neutral</span></div>
+                </div>
+            </div>
+        `;
 
         let reviewsHtml = `<h3>📝 ${reviews.length} Reviews</h3>`;
         for (let rev of reviews) {
@@ -1262,10 +1286,7 @@
                 </div>
             </div>
             ${heatmapHtml}
-            <div class="pros-cons-grid">
-                <div class="pro-section"><h3>✅ Top Pros</h3>${prosHtml || '<p style="color:var(--text-secondary);">No pros identified yet</p>'}</div>
-                <div class="con-section"><h3>❌ Top Cons</h3>${consHtml || '<p style="color:var(--text-secondary);">No cons identified yet</p>'}</div>
-            </div>
+            ${reviewSummaryHtml}
             ${reviewsHtml}
         `;
         document.getElementById('detailContent').innerHTML = html;
