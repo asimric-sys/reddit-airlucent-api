@@ -583,22 +583,6 @@
                 <span class="filter-label">📂 Category</span>
                 <div class="filter-chips" id="categoryChips">
                     <span class="filter-chip active" data-value="">All</span>
-                    <span class="filter-chip" data-value="air-purifier">🌬️ Air Purifiers</span>
-                    <span class="filter-chip" data-value="humidifier">💧 Humidifiers</span>
-                    <span class="filter-chip" data-value="air-conditioner">❄️ Portable ACs</span>
-                    <span class="filter-chip" data-value="smart-thermostat">🌡️ Smart Thermostats</span>
-                    <span class="filter-chip" data-value="air-quality-monitor">📊 Air Quality</span>
-                    <span class="filter-chip" data-value="whole-house-dehumidifier">🏠 Whole‑House Dehumidifiers</span>
-                    <span class="filter-chip" data-value="portable-dehumidifier">📦 Portable Dehumidifiers</span>
-                    <span class="filter-chip" data-value="ventilation-fan-hrv-erv">🔄 Ventilation Fans</span>
-                    <span class="filter-chip" data-value="smart-vent">🔧 Smart Vents</span>
-                    <span class="filter-chip" data-value="air-filter">🧹 Air Filters</span>
-                    <span class="filter-chip" data-value="co-detector">☣️ CO Detectors</span>
-                    <span class="filter-chip" data-value="ceiling-fan">🌀 Ceiling Fans</span>
-                    <span class="filter-chip" data-value="space-heater">🔥 Space Heaters</span>
-                    <span class="filter-chip" data-value="ductless-mini-split">🏗️ Mini‑Splits</span>
-                    <span class="filter-chip" data-value="evaporative-cooler">💨 Evaporative Coolers</span>
-                    <span class="filter-chip" data-value="uv-air-purifier">☀️ UV Air Purifiers</span>
                 </div>
             </div>
             <!-- Subreddit + apply row -->
@@ -799,6 +783,28 @@
                 loadGrid();
             });
         });
+    }
+
+    // ── Dynamic Category Loading ──
+    async function loadCategories() {
+        try {
+            const res = await fetch(`${API_BASE}/categories`);
+            const data = await res.json();
+            const container = document.getElementById('categoryChips');
+
+            // Always add "All" first
+            let html = '<span class="filter-chip active" data-value="">All</span>';
+
+            // Add all categories from API
+            for (let cat of (data.categories || [])) {
+                html += `<span class="filter-chip" data-value="${cat}">${cat.replace(/-/g, ' ')}</span>`;
+            }
+
+            container.innerHTML = html;
+
+            // Re-attach event listeners
+            initCategoryChips();
+        } catch(e) { console.error('Category load error', e); }
     }
 
     // ── Use-case Buttons ──
@@ -1031,6 +1037,16 @@
     // ── Render Product Cards (no rank badge) ──
     function renderProducts(rankings, isAppend = false) {
         const container = document.getElementById('productsContainer');
+
+        // Sort by review count (descending) when no category filter is active
+        if (!currentCategory) {
+            rankings.sort((a, b) => {
+                const aCount = a.review_count || 0;
+                const bCount = b.review_count || 0;
+                return bCount - aCount;
+            });
+        }
+
         if (!rankings.length && !isAppend) {
             container.innerHTML = '<div style="padding:2rem; color:var(--text-secondary); text-align:center;">😕 No products found.</div>';
             return;
@@ -1396,6 +1412,7 @@
 
     // ── Init ──
     initCategoryChips();
+    loadCategories();
     updateUsecaseButtons();
     loadFilters();
     loadRecentActivity();
@@ -1410,6 +1427,7 @@
         loadRecentActivity();
         loadReviewOfWeek();
         loadRecentlyAddedProducts();
+        loadCategories();
         updateLastUpdated();
     }, 30000);
 </script>
