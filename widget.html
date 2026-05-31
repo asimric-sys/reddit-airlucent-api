@@ -7,52 +7,72 @@
     <style>
         * { box-sizing: border-box; }
         :root {
-            --bg: #fff7f0;
+            --bg: #f8f4ef;
             --card-bg: #ffffff;
-            --text-primary: #4a3b2c;
+            --text-primary: #2d2416;
             --text-secondary: #7a6b5a;
-            --border: #f0e4d0;
+            --border: #ede3d6;
             --btn-bg: #f39c12;
             --btn-hover: #e67e22;
-            --pros-bg: #fff2e0;
-            --cons-bg: #ffe4e0;
-            --filter-bg: #fff0e0;
+            --pros-bg: #fff8ee;
+            --cons-bg: #fff0ee;
+            --filter-bg: #fdf6ee;
+            --chip-bg: #fff3e0;
+            --chip-active: #f39c12;
+            --chip-active-text: #ffffff;
             --trend-line: #f39c12;
             --verified-badge: #22c55e;
+            --new-badge: #6366f1;
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+            --shadow-md: 0 8px 24px rgba(0,0,0,0.10);
+            --shadow-lg: 0 20px 40px rgba(0,0,0,0.14);
+            --radius-sm: 12px;
+            --radius-md: 20px;
+            --radius-lg: 28px;
         }
         body.dark {
-            --bg: #2c2a2a;
-            --card-bg: #3a3838;
+            --bg: #1a1714;
+            --card-bg: #2a2520;
             --text-primary: #f5e6d3;
-            --text-secondary: #d4c4b0;
-            --border: #5a4a3a;
+            --text-secondary: #b0a090;
+            --border: #3d3328;
             --btn-bg: #e67e22;
             --btn-hover: #f39c12;
-            --pros-bg: #4a3b2c;
-            --cons-bg: #5a2c2c;
-            --filter-bg: #4a3b2c;
+            --pros-bg: #2e2418;
+            --cons-bg: #2e1a18;
+            --filter-bg: #221e18;
+            --chip-bg: #2e2418;
+            --chip-active: #e67e22;
+            --chip-active-text: #ffffff;
             --trend-line: #f39c12;
             --verified-badge: #4ade80;
+            --new-badge: #818cf8;
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
+            --shadow-md: 0 8px 24px rgba(0,0,0,0.4);
+            --shadow-lg: 0 20px 40px rgba(0,0,0,0.5);
         }
         body {
             font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
             background: var(--bg);
             margin: 0;
             padding: 2rem 1rem;
-            transition: background 0.3s;
+            transition: background 0.3s, color 0.3s;
             color: var(--text-primary);
+            line-height: 1.6;
         }
         .widget-container {
             max-width: 1400px;
             margin: 0 auto;
             background: var(--card-bg);
-            border-radius: 28px;
-            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
             overflow: hidden;
         }
+
+        /* ── Header ── */
         .header {
-            background: #f39c12;
-            padding: 1.5rem 2rem;
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+            padding: 1.75rem 2rem;
             color: white;
             display: flex;
             justify-content: space-between;
@@ -60,47 +80,374 @@
             flex-wrap: wrap;
             gap: 1rem;
         }
-        .header h1 { margin: 0; font-size: 2rem; display: inline-flex; align-items: center; gap: 10px; }
-        .theme-toggle { background: rgba(255,255,255,0.2); border: none; border-radius: 60px; padding: 0.4rem 1rem; font-size: 0.9rem; cursor: pointer; color: white; }
-        .filters { display: flex; flex-wrap: wrap; gap: 1rem; padding: 1.2rem 2rem; background: var(--filter-bg); border-bottom: 1px solid var(--border); align-items: flex-end; }
-        .filter-group { display: flex; flex-direction: column; gap: 0.3rem; }
-        .filter-group label { font-weight: 600; font-size: 0.7rem; text-transform: uppercase; color: var(--text-secondary); }
-        select, input, button { padding: 0.6rem 1.2rem; border-radius: 40px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-primary); font-size: 0.9rem; cursor: pointer; }
-        button { background: var(--btn-bg); color: white; border: none; }
-        button:hover { background: var(--btn-hover); transform: translateY(-2px); }
-        .compare-bar { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 2rem; background: var(--filter-bg); border-bottom: 1px solid var(--border); }
+        .header h1 { margin: 0; font-size: 1.8rem; font-weight: 800; display: inline-flex; align-items: center; gap: 10px; letter-spacing: -0.5px; }
+        .header-subtitle { font-size: 0.85rem; opacity: 0.85; margin-top: 0.2rem; }
+        .theme-toggle {
+            background: rgba(255,255,255,0.2);
+            border: 1.5px solid rgba(255,255,255,0.35);
+            border-radius: 60px;
+            padding: 0.45rem 1.1rem;
+            font-size: 0.85rem;
+            cursor: pointer;
+            color: white;
+            transition: background 0.2s;
+            backdrop-filter: blur(4px);
+        }
+        .theme-toggle:hover { background: rgba(255,255,255,0.3); transform: none; }
+
+        /* ── Week Review Banner ── */
+        .week-review-banner {
+            background: linear-gradient(90deg, #f39c12, #e67e22);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            margin: 1.25rem 2rem 0;
+            border-radius: var(--radius-md);
+            text-align: center;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            box-shadow: var(--shadow-sm);
+            transition: opacity 0.2s;
+        }
+        .week-review-banner:hover { opacity: 0.9; transform: none; }
+
+        /* ── Activity Feed ── */
+        .activity-section {
+            margin: 1.25rem 2rem 0;
+        }
+        .activity-section-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-secondary);
+            margin-bottom: 0.6rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .activity-feed {
+            background: var(--filter-bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 1rem 1.25rem;
+        }
+        .activity-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 0.65rem 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.875rem;
+            animation: fadeIn 0.3s ease;
+        }
+        .activity-item:last-child { border-bottom: none; }
+        .activity-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--btn-bg);
+            margin-top: 6px;
+            flex-shrink: 0;
+        }
+        .activity-body { flex: 1; min-width: 0; }
+        .activity-product { font-weight: 700; color: var(--text-primary); }
+        .activity-snippet { color: var(--text-secondary); font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .activity-meta { font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.15rem; }
+        .activity-refresh-note {
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            text-align: right;
+            margin-top: 0.5rem;
+        }
+
+        /* ── Recently Added Section ── */
+        .recently-added-section {
+            margin: 1.25rem 2rem 0;
+        }
+        .recently-added-scroll {
+            display: flex;
+            gap: 1rem;
+            overflow-x: auto;
+            padding-bottom: 0.5rem;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
+        }
+        .recently-added-scroll::-webkit-scrollbar { height: 4px; }
+        .recently-added-scroll::-webkit-scrollbar-track { background: transparent; }
+        .recently-added-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        .new-product-card {
+            flex: 0 0 180px;
+            background: var(--card-bg);
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+            box-shadow: var(--shadow-sm);
+        }
+        .new-product-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+        .new-product-card img { width: 100%; height: 110px; object-fit: cover; background: var(--filter-bg); }
+        .new-product-card-body { padding: 0.65rem 0.75rem; }
+        .new-product-card-name { font-size: 0.8rem; font-weight: 700; line-height: 1.3; }
+        .new-badge {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            background: var(--new-badge);
+            color: white;
+            font-size: 0.65rem;
+            font-weight: 800;
+            padding: 0.15rem 0.5rem;
+            border-radius: 30px;
+            letter-spacing: 0.04em;
+            z-index: 2;
+        }
+
+        /* ── Filter Bar (horizontal chips) ── */
+        .filter-bar {
+            padding: 1.25rem 2rem;
+            border-bottom: 1px solid var(--border);
+            background: var(--filter-bg);
+        }
+        .filter-bar-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.6rem;
+            margin-bottom: 0.75rem;
+        }
+        .filter-bar-row:last-child { margin-bottom: 0; }
+        .filter-label {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            min-width: 70px;
+        }
+        .filter-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+        }
+        .filter-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.35rem 0.85rem;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1.5px solid var(--border);
+            background: var(--chip-bg);
+            color: var(--text-primary);
+            transition: all 0.18s;
+            white-space: nowrap;
+            user-select: none;
+        }
+        .filter-chip:hover { border-color: var(--btn-bg); color: var(--btn-bg); transform: none; background: var(--chip-bg); }
+        .filter-chip.active {
+            background: var(--chip-active);
+            color: var(--chip-active-text);
+            border-color: var(--chip-active);
+            font-weight: 700;
+            box-shadow: 0 2px 8px rgba(243,156,18,0.3);
+        }
+        .filter-chip.active:hover { background: var(--btn-hover); border-color: var(--btn-hover); color: white; }
+        .filter-search-row {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+        }
+        .filter-search-input {
+            padding: 0.45rem 1rem;
+            border-radius: 30px;
+            border: 1.5px solid var(--border);
+            background: var(--card-bg);
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            outline: none;
+            transition: border-color 0.2s;
+            min-width: 180px;
+        }
+        .filter-search-input:focus { border-color: var(--btn-bg); }
+        .filter-apply-btn {
+            padding: 0.45rem 1.2rem;
+            border-radius: 30px;
+            border: none;
+            background: var(--btn-bg);
+            color: white;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.15s;
+        }
+        .filter-apply-btn:hover { background: var(--btn-hover); transform: translateY(-1px); }
+        .filter-clear-btn {
+            padding: 0.45rem 1rem;
+            border-radius: 30px;
+            border: 1.5px solid var(--border);
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.18s;
+        }
+        .filter-clear-btn:hover { border-color: var(--btn-bg); color: var(--btn-bg); background: transparent; transform: none; }
+        .spec-filter-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            margin-top: 0.5rem;
+        }
+        .spec-chip-group { display: flex; flex-direction: column; gap: 0.3rem; }
+        .spec-chip-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); }
+        .spec-chip-row { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+        .spec-chip {
+            padding: 0.25rem 0.7rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            border: 1.5px solid var(--border);
+            background: var(--chip-bg);
+            color: var(--text-secondary);
+            transition: all 0.18s;
+        }
+        .spec-chip:hover { border-color: var(--btn-bg); color: var(--btn-bg); transform: none; background: var(--chip-bg); }
+        .spec-chip.active { background: var(--chip-active); color: white; border-color: var(--chip-active); font-weight: 600; }
+        .active-filters-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-top: 0.6rem;
+        }
+        .active-filter-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.2rem 0.65rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            background: var(--btn-bg);
+            color: white;
+            font-weight: 600;
+        }
+        .active-filter-tag button {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 0.8rem;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+            opacity: 0.8;
+        }
+        .active-filter-tag button:hover { opacity: 1; transform: none; background: none; }
+
+        /* ── Best For You ── */
         .best-for-you { padding: 1rem 2rem; background: var(--filter-bg); border-bottom: 1px solid var(--border); }
         .usecase-buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
-        .usecase-btn { background: var(--btn-bg); color: white; padding: 0.3rem 0.8rem; font-size: 0.8rem; border-radius: 40px; cursor: pointer; border: none; }
-        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 2rem; padding: 2rem; animation: fadeIn 0.4s ease; }
-        .product-card { background: var(--card-bg); border-radius: 28px; overflow: hidden; cursor: pointer; transition: all 0.3s; border: 1px solid var(--border); position: relative; }
-        .product-card:hover { transform: translateY(-6px); box-shadow: 0 20px 35px -12px rgba(0,0,0,0.2); }
-        .trending-badge { position: absolute; top: 10px; right: 10px; background: #ff4500; color: white; padding: 0.2rem 0.6rem; border-radius: 40px; font-size: 0.7rem; font-weight: bold; z-index: 2; }
-        .product-img { width: 100%; height: 180px; object-fit: cover; background: #f1f5f9; }
-        .product-info { padding: 1.2rem; }
-        .product-title { font-weight: 700; display: flex; justify-content: space-between; }
-        .rank-badge { background: var(--pros-bg); border-radius: 40px; padding: 0.2rem 0.7rem; font-size: 0.7rem; }
+        .usecase-btn {
+            background: var(--chip-bg);
+            color: var(--text-primary);
+            padding: 0.35rem 0.9rem;
+            font-size: 0.8rem;
+            border-radius: 30px;
+            cursor: pointer;
+            border: 1.5px solid var(--border);
+            font-weight: 500;
+            transition: all 0.18s;
+        }
+        .usecase-btn:hover { background: var(--btn-bg); color: white; border-color: var(--btn-bg); transform: none; }
+
+        /* ── Compare Bar ── */
+        .compare-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.6rem 2rem;
+            background: var(--filter-bg);
+            border-bottom: 1px solid var(--border);
+            font-size: 0.85rem;
+        }
+
+        /* ── Product Grid ── */
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.5rem; padding: 2rem; animation: fadeIn 0.4s ease; }
+        .product-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.25s, box-shadow 0.25s;
+            border: 1px solid var(--border);
+            position: relative;
+            box-shadow: var(--shadow-sm);
+        }
+        .product-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-lg); }
+        .trending-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #ff4500;
+            color: white;
+            padding: 0.2rem 0.6rem;
+            border-radius: 30px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            z-index: 2;
+            box-shadow: 0 2px 6px rgba(255,69,0,0.35);
+        }
+        .product-img { width: 100%; height: 180px; object-fit: cover; background: var(--filter-bg); }
+        .product-info { padding: 1rem 1.1rem 1.1rem; }
+        .product-title { font-weight: 700; font-size: 0.95rem; line-height: 1.35; color: var(--text-primary); }
+        .product-title strong { display: block; }
         .sentiment-badge { display: inline-block; background: var(--pros-bg); padding: 0.25rem 0.8rem; border-radius: 30px; font-size: 0.8rem; margin-top: 0.5rem; }
-        .load-more { display: flex; justify-content: center; margin: 1rem 0 2rem; }
+        .load-more { display: flex; justify-content: center; margin: 0.5rem 0 2.5rem; }
+        .load-more-btn {
+            padding: 0.6rem 2rem;
+            border-radius: 30px;
+            border: 1.5px solid var(--border);
+            background: transparent;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .load-more-btn:hover { background: var(--btn-bg); color: white; border-color: var(--btn-bg); transform: none; }
+
+        /* ── Detail View ── */
         .detail-view { padding: 2rem; }
-        .back-link { cursor: pointer; color: var(--btn-bg); margin-bottom: 1rem; display: inline-block; }
+        .back-link {
+            cursor: pointer;
+            color: var(--btn-bg);
+            margin-bottom: 1.25rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: gap 0.2s;
+        }
+        .back-link:hover { gap: 0.6rem; }
         .product-detail-layout {
             display: flex;
             flex-wrap: wrap;
             gap: 2rem;
             margin-bottom: 2rem;
         }
-        .product-detail-image {
-            flex: 0 0 200px;
-        }
+        .product-detail-image { flex: 0 0 200px; }
         .product-detail-image img {
             width: 100%;
-            border-radius: 20px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-md);
         }
-        .product-detail-header {
-            flex: 1;
-        }
+        .product-detail-header { flex: 1; }
         .title-badge-row {
             display: flex;
             flex-wrap: wrap;
@@ -110,6 +457,8 @@
         }
         .title-badge-row h2 {
             margin: 0;
+            font-size: 1.5rem;
+            font-weight: 800;
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
@@ -121,114 +470,169 @@
             background: #ff4500;
             color: white;
             padding: 0.2rem 0.7rem;
-            border-radius: 40px;
-            font-size: 0.7rem;
-            font-weight: bold;
+            border-radius: 30px;
+            font-size: 0.68rem;
+            font-weight: 700;
             margin-left: 0.25rem;
             vertical-align: middle;
         }
-        .verified-badge-inline {
-            background: var(--verified-badge);
-        }
+        .verified-badge-inline { background: var(--verified-badge); }
         .pros-cons-grid { display: flex; flex-wrap: wrap; gap: 2rem; margin: 2rem 0; }
-        .pro-section, .con-section { flex: 1; }
-        .pro-item, .con-item { background: var(--card-bg); border-radius: 24px; padding: 1rem; margin-bottom: 1rem; border-left: 4px solid; }
-        .pro-item { border-left-color: #f39c12; }
-        .con-item { border-left-color: #e67e22; }
-        .quote-list { margin-top: 0.5rem; padding-left: 1rem; font-size: 0.9rem; color: var(--text-secondary); }
+        .pro-section, .con-section { flex: 1; min-width: 240px; }
+        .pro-item, .con-item {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid;
+            box-shadow: var(--shadow-sm);
+        }
+        .pro-item { border-left-color: #22c55e; }
+        .con-item { border-left-color: #ef4444; }
+        .quote-list { margin-top: 0.5rem; padding-left: 1rem; font-size: 0.875rem; color: var(--text-secondary); }
         .quote-list p { margin: 0.3rem 0; font-style: italic; }
         .review-card { border-bottom: 1px solid var(--border); padding: 1rem 0; }
         .review-meta { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.3rem; display: flex; justify-content: space-between; align-items: center; }
         .vote-buttons { display: flex; gap: 0.5rem; }
         .vote-btn { background: none; border: none; font-size: 1.1rem; cursor: pointer; padding: 0 0.2rem; }
         .helpful-score { font-size: 0.8rem; color: var(--text-secondary); margin-left: 0.5rem; }
-        .review-text { margin: 0.5rem 0; overflow-wrap: break-word; }
-        .show-more-btn, .preview-toggle-btn { background: none; border: none; color: var(--btn-bg); cursor: pointer; font-size: 0.8rem; padding: 0; margin-top: 0.3rem; }
+        .review-text { margin: 0.5rem 0; overflow-wrap: break-word; font-size: 0.9rem; line-height: 1.6; }
+        .show-more-btn, .preview-toggle-btn { background: none; border: none; color: var(--btn-bg); cursor: pointer; font-size: 0.8rem; padding: 0; margin-top: 0.3rem; font-weight: 600; }
         .related-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem; }
-        .related-card { background: var(--card-bg); border-radius: 20px; padding: 0.8rem; cursor: pointer; border: 1px solid var(--border); }
-        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; }
-        .modal-content { background: var(--card-bg); border-radius: 28px; max-width: 90%; max-height: 80%; overflow: auto; padding: 2rem; width: 1000px; }
+        .related-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            padding: 0.8rem;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            transition: box-shadow 0.2s, transform 0.2s;
+        }
+        .related-card:hover { box-shadow: var(--shadow-md); transform: translateY(-3px); }
+
+        /* ── Modal ── */
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.55); display: flex; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(3px); }
+        .modal-content { background: var(--card-bg); border-radius: var(--radius-lg); max-width: 90%; max-height: 80%; overflow: auto; padding: 2rem; width: 1000px; box-shadow: var(--shadow-lg); }
         .modal table { width: 100%; border-collapse: collapse; }
-        .modal th, .modal td { padding: 0.5rem; text-align: left; border-bottom: 1px solid var(--border); }
-        .modal td a { color: var(--btn-bg); text-decoration: none; }
-        .share-btn, .reddit-badge, .verified-badge { background: var(--pros-bg); border-radius: 40px; padding: 0.2rem 0.7rem; font-size: 0.7rem; display: inline-block; margin-right: 0.5rem; color: var(--text-primary); }
+        .modal th, .modal td { padding: 0.6rem; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.875rem; }
+        .modal td a { color: var(--btn-bg); text-decoration: none; font-weight: 600; }
+
+        /* ── Misc Badges ── */
+        .share-btn, .reddit-badge, .verified-badge { background: var(--pros-bg); border-radius: 30px; padding: 0.25rem 0.75rem; font-size: 0.75rem; display: inline-block; margin-right: 0.5rem; color: var(--text-primary); cursor: pointer; border: none; }
         .reddit-badge { background: #ff4500; color: white; }
         .verified-badge { background: var(--verified-badge); color: white; }
-        .heatmap-container { background: var(--filter-bg); padding: 1rem; border-radius: 20px; margin: 1rem 0; }
+        .heatmap-container { background: var(--filter-bg); padding: 1rem; border-radius: var(--radius-md); margin: 1rem 0; border: 1px solid var(--border); }
         .heatmap-bar { display: flex; align-items: center; gap: 0.5rem; margin: 0.3rem 0; }
         .heatmap-label { width: 150px; font-size: 0.8rem; }
-        .heatmap-fill { background: var(--btn-bg); height: 20px; border-radius: 10px; }
-        .reddit-preview { background: var(--filter-bg); padding: 1rem; border-radius: 20px; margin: 1rem 0; }
-        .activity-feed { background: var(--filter-bg); border-radius: 20px; padding: 1rem; margin: 0 2rem 1rem 2rem; }
-        .week-review-banner { background: var(--btn-bg); color: white; padding: 0.8rem 1rem; border-radius: 40px; margin: 0 2rem 1rem 2rem; text-align: center; cursor: pointer; }
+        .heatmap-fill { background: var(--btn-bg); height: 18px; border-radius: 10px; transition: width 0.4s ease; }
+        .reddit-preview { background: var(--filter-bg); padding: 1rem; border-radius: var(--radius-md); margin: 1rem 0; border: 1px solid var(--border); }
+
+        /* ── Animations ── */
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        footer { background: var(--card-bg); text-align: center; padding: 1rem; font-size: 0.75rem; border-top: 1px solid var(--border); }
-        @media (max-width: 768px) { .filters-sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); } .main-content { flex-direction: column; } .filters-top { flex-direction: column; align-items: stretch; } .product-detail-layout { flex-direction: column; align-items: center; } .product-detail-image { max-width: 200px; } }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .loading-pulse { animation: pulse 1.5s infinite; }
+
+        /* ── Footer ── */
+        footer { background: var(--filter-bg); text-align: center; padding: 1.25rem; font-size: 0.75rem; border-top: 1px solid var(--border); color: var(--text-secondary); }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            body { padding: 0.75rem 0.5rem; }
+            .header { padding: 1.25rem 1rem; }
+            .header h1 { font-size: 1.4rem; }
+            .activity-section, .recently-added-section, .week-review-banner { margin-left: 1rem; margin-right: 1rem; }
+            .filter-bar { padding: 1rem; }
+            .product-grid { padding: 1rem; gap: 1rem; }
+            .product-detail-layout { flex-direction: column; align-items: center; }
+            .product-detail-image { max-width: 200px; }
+            .compare-bar { padding: 0.6rem 1rem; }
+            .best-for-you { padding: 0.75rem 1rem; }
+        }
         .hidden { display: none; }
     </style>
 </head>
 <body>
 <div class="widget-container">
     <div class="header">
-        <h1>📢 Real Reddit Reviews <span>🔥</span></h1>
+        <div>
+            <h1>📢 Real Reddit Reviews <span>🔥</span></h1>
+            <div class="header-subtitle">Live sentiment from real Reddit discussions</div>
+        </div>
         <button class="theme-toggle" id="themeToggle">🌙 Dark mode</button>
     </div>
 
     <div id="gridView">
+        <!-- Week Review Banner -->
         <div class="week-review-banner" id="weekReviewBanner" style="display: none;">🏆 Review of the week: <span id="weekReviewText"></span></div>
-        <div class="activity-feed" id="activityFeed">⏳ Loading recent activity...</div>
-        <div class="main-content">
-            <div class="filters-sidebar" id="filterSidebar">
-                <h3>🔍 Filter by specs</h3>
-                <div id="specFilters"></div>
-                <button id="clearFiltersBtn" style="width:100%; margin-top:1rem;">Clear all filters</button>
-            </div>
-            <div class="right-col">
-                <div class="filters-top">
-                    <div class="filter-group">
-                        <label>📂 Category</label>
-                        <select id="categorySelect">
-                            <option value="">All</option>
-                            <option value="air-purifier">Air Purifiers</option>
-                            <option value="humidifier">Humidifiers</option>
-                            <option value="air-conditioner">Portable ACs</option>
-                            <option value="smart-thermostat">Smart Thermostats</option>
-                            <option value="air-quality-monitor">Air Quality Monitors</option>
-                            <option value="whole-house-dehumidifier">Whole‑House Dehumidifiers</option>
-                            <option value="portable-dehumidifier">Portable Dehumidifiers</option>
-                            <option value="ventilation-fan-hrv-erv">Ventilation Fans (HRV/ERV)</option>
-                            <option value="smart-vent">Smart Vents</option>
-                            <option value="air-filter">Air Filters</option>
-                            <option value="co-detector">CO Detectors</option>
-                            <option value="ceiling-fan">Ceiling Fans</option>
-                            <option value="space-heater">Space Heaters</option>
-                            <option value="ductless-mini-split">Ductless Mini‑Splits</option>
-                            <option value="evaporative-cooler">Evaporative Coolers</option>
-                            <option value="uv-air-purifier">UV Air Purifiers</option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <label>🎯 Subreddit</label>
-                        <input type="text" id="subredditInput" placeholder="e.g., BuyItForLife">
-                    </div>
-                    <div class="filter-group">
-                        <label>&nbsp;</label>
-                        <button id="runBtn">✨ Apply filters</button>
-                    </div>
-                </div>
-                <div class="best-for-you">
-                    <strong>🤔 Best for you?</strong> <span style="font-size:0.8rem;">Select your main concern:</span>
-                    <div id="usecaseButtonsContainer" class="usecase-buttons"></div>
-                    <div id="personalisedResults" style="margin-top: 1rem;"></div>
-                </div>
-                <div class="compare-bar">
-                    <span>Select products to compare (2‑3)</span>
-                    <button id="compareBtn">🔍 Compare Selected</button>
-                </div>
-                <div id="productsContainer" class="product-grid"><div class="loading">⏳ Loading products...</div></div>
-                <div class="load-more"><button id="loadMoreBtn">Load More</button></div>
-            </div>
+
+        <!-- Recently Added Products -->
+        <div class="recently-added-section" id="recentlyAddedSection" style="display:none;">
+            <div class="activity-section-title">🆕 Recently Added Products</div>
+            <div class="recently-added-scroll" id="recentlyAddedScroll"></div>
         </div>
+
+        <!-- Recent Activity Feed -->
+        <div class="activity-section">
+            <div class="activity-section-title">🔄 Recent Reddit Activity <span id="activityRefreshNote" style="font-weight:400; text-transform:none; letter-spacing:0; font-size:0.7rem; color:var(--text-secondary);"></span></div>
+            <div class="activity-feed" id="activityFeed"><div class="loading-pulse" style="color:var(--text-secondary); font-size:0.875rem;">⏳ Loading recent activity…</div></div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar" id="filterBar">
+            <!-- Category chips row -->
+            <div class="filter-bar-row">
+                <span class="filter-label">📂 Category</span>
+                <div class="filter-chips" id="categoryChips">
+                    <span class="filter-chip active" data-value="">All</span>
+                    <span class="filter-chip" data-value="air-purifier">🌬️ Air Purifiers</span>
+                    <span class="filter-chip" data-value="humidifier">💧 Humidifiers</span>
+                    <span class="filter-chip" data-value="air-conditioner">❄️ Portable ACs</span>
+                    <span class="filter-chip" data-value="smart-thermostat">🌡️ Smart Thermostats</span>
+                    <span class="filter-chip" data-value="air-quality-monitor">📊 Air Quality</span>
+                    <span class="filter-chip" data-value="whole-house-dehumidifier">🏠 Whole‑House Dehumidifiers</span>
+                    <span class="filter-chip" data-value="portable-dehumidifier">📦 Portable Dehumidifiers</span>
+                    <span class="filter-chip" data-value="ventilation-fan-hrv-erv">🔄 Ventilation Fans</span>
+                    <span class="filter-chip" data-value="smart-vent">🔧 Smart Vents</span>
+                    <span class="filter-chip" data-value="air-filter">🧹 Air Filters</span>
+                    <span class="filter-chip" data-value="co-detector">☣️ CO Detectors</span>
+                    <span class="filter-chip" data-value="ceiling-fan">🌀 Ceiling Fans</span>
+                    <span class="filter-chip" data-value="space-heater">🔥 Space Heaters</span>
+                    <span class="filter-chip" data-value="ductless-mini-split">🏗️ Mini‑Splits</span>
+                    <span class="filter-chip" data-value="evaporative-cooler">💨 Evaporative Coolers</span>
+                    <span class="filter-chip" data-value="uv-air-purifier">☀️ UV Air Purifiers</span>
+                </div>
+            </div>
+            <!-- Subreddit + apply row -->
+            <div class="filter-bar-row filter-search-row">
+                <span class="filter-label">🎯 Subreddit</span>
+                <input type="text" class="filter-search-input" id="subredditInput" placeholder="e.g., BuyItForLife">
+                <button class="filter-apply-btn" id="runBtn">✨ Apply</button>
+                <button class="filter-clear-btn" id="clearFiltersBtn">✕ Clear all</button>
+            </div>
+            <!-- Spec filters (dynamic) -->
+            <div id="specFiltersArea" style="display:none;">
+                <div class="activity-section-title" style="margin-top:0.75rem; margin-bottom:0.4rem;">⚙️ Filter by Specs</div>
+                <div id="specFilters" class="spec-filter-chips"></div>
+            </div>
+            <!-- Active filter tags -->
+            <div id="activeFiltersBar" class="active-filters-bar" style="display:none;"></div>
+        </div>
+
+        <!-- Best For You -->
+        <div class="best-for-you">
+            <strong>🤔 Best for you?</strong> <span style="font-size:0.8rem; color:var(--text-secondary);">Select your main concern:</span>
+            <div id="usecaseButtonsContainer" class="usecase-buttons"></div>
+            <div id="personalisedResults" style="margin-top: 1rem;"></div>
+        </div>
+
+        <!-- Compare Bar -->
+        <div class="compare-bar">
+            <span style="color:var(--text-secondary);">Select 2–3 products to compare</span>
+            <button id="compareBtn" style="padding:0.4rem 1.1rem; font-size:0.85rem; border-radius:30px; border:none; background:var(--btn-bg); color:white; cursor:pointer; font-weight:600;">🔍 Compare</button>
+        </div>
+
+        <!-- Product Grid -->
+        <div id="productsContainer" class="product-grid"><div class="loading-pulse" style="color:var(--text-secondary);">⏳ Loading products…</div></div>
+        <div class="load-more"><button class="load-more-btn" id="loadMoreBtn">Load More ↓</button></div>
     </div>
 
     <div id="detailView" style="display: none;" class="detail-view">
@@ -239,11 +643,11 @@
 
     <div id="compareModal" class="modal hidden">
         <div class="modal-content">
-            <span id="closeModal" style="float:right; cursor:pointer;">&times;</span>
+            <span id="closeModal" style="float:right; cursor:pointer; font-size:1.4rem; line-height:1;">&times;</span>
             <div id="comparisonTable"></div>
         </div>
     </div>
-    <footer>💬 Data from Reddit • Updated daily</footer>
+    <footer>💬 Data sourced from Reddit • Refreshes every 30 seconds • <span id="lastUpdated"></span></footer>
 </div>
 
 <script>
@@ -377,16 +781,30 @@
         return str.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m] || m));
     }
 
+    // ── Theme Toggle ──
     const themeToggle = document.getElementById('themeToggle');
     themeToggle.addEventListener('click', () => {
         document.body.classList.toggle('dark');
         themeToggle.innerHTML = document.body.classList.contains('dark') ? '☀️ Light mode' : '🌙 Dark mode';
     });
 
+    // ── Category Chip Selection ──
+    function initCategoryChips() {
+        document.querySelectorAll('#categoryChips .filter-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                document.querySelectorAll('#categoryChips .filter-chip').forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
+                currentCategory = chip.dataset.value;
+                updateUsecaseButtons();
+                loadGrid();
+            });
+        });
+    }
+
+    // ── Use-case Buttons ──
     function updateUsecaseButtons() {
-        const category = document.getElementById('categorySelect').value;
         const container = document.getElementById('usecaseButtonsContainer');
-        let useCases = useCaseMap[category] || defaultUseCases;
+        let useCases = useCaseMap[currentCategory] || defaultUseCases;
         container.innerHTML = '';
         useCases.forEach(uc => {
             const btn = document.createElement('button');
@@ -398,58 +816,157 @@
         });
     }
 
-    async function loadFilters() {
-        const res = await fetch(`${API_BASE}/filters`);
-        const filters = await res.json();
-        const container = document.getElementById('specFilters');
-        container.innerHTML = '';
-        
-        for (const [key, values] of Object.entries(filters)) {
-            if (!values.length) continue;
-            const section = document.createElement('div');
-            section.className = 'filter-section';
-            section.innerHTML = `
-                <h4>${key.replace(/_/g, ' ')}</h4>
-                <select id="filter_${key}" style="width:100%; padding:0.4rem; border-radius: 8px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-primary);">
-                    <option value="">Any</option>
-                    ${values.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}
-                </select>
-            `;
-            container.appendChild(section);
-            const select = section.querySelector('select');
-            select.addEventListener('change', () => {
-                if (select.value) currentSpecFilters[key] = select.value;
-                else delete currentSpecFilters[key];
+    // ── Active Filter Tags ──
+    function renderActiveFilterTags() {
+        const bar = document.getElementById('activeFiltersBar');
+        const entries = Object.entries(currentSpecFilters);
+        if (!entries.length) {
+            bar.style.display = 'none';
+            bar.innerHTML = '';
+            return;
+        }
+        bar.style.display = 'flex';
+        bar.innerHTML = entries.map(([key, val]) =>
+            `<span class="active-filter-tag">${key.replace(/_/g,' ')}: ${escapeHtml(val)} <button data-key="${escapeHtml(key)}" title="Remove filter">✕</button></span>`
+        ).join('');
+        bar.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                delete currentSpecFilters[btn.dataset.key];
+                document.querySelectorAll(`.spec-chip[data-key="${btn.dataset.key}"]`).forEach(c => c.classList.remove('active'));
+                renderActiveFilterTags();
                 loadGrid();
             });
-        }
-        document.getElementById('clearFiltersBtn').addEventListener('click', () => {
-            currentSpecFilters = {};
-            document.querySelectorAll('#specFilters select').forEach(sel => sel.value = '');
-            loadGrid();
         });
     }
 
+    // ── Spec Filters (chip-based) ──
+    async function loadFilters() {
+        try {
+            const res = await fetch(`${API_BASE}/filters`);
+            const filters = await res.json();
+            const container = document.getElementById('specFilters');
+            const area = document.getElementById('specFiltersArea');
+            container.innerHTML = '';
+            let hasFilters = false;
+
+            for (const [key, values] of Object.entries(filters)) {
+                if (!values.length) continue;
+                hasFilters = true;
+                const group = document.createElement('div');
+                group.className = 'spec-chip-group';
+                group.style.marginBottom = '0.6rem';
+                group.innerHTML = `<div class="spec-chip-label">${key.replace(/_/g, ' ')}</div><div class="spec-chip-row" id="specrow_${key}"></div>`;
+                container.appendChild(group);
+                const row = group.querySelector('.spec-chip-row');
+                values.forEach(v => {
+                    const chip = document.createElement('span');
+                    chip.className = 'spec-chip';
+                    chip.textContent = v;
+                    chip.dataset.key = key;
+                    chip.dataset.value = v;
+                    chip.addEventListener('click', () => {
+                        const isActive = chip.classList.contains('active');
+                        row.querySelectorAll('.spec-chip').forEach(c => c.classList.remove('active'));
+                        if (!isActive) {
+                            chip.classList.add('active');
+                            currentSpecFilters[key] = v;
+                        } else {
+                            delete currentSpecFilters[key];
+                        }
+                        renderActiveFilterTags();
+                        loadGrid();
+                    });
+                    row.appendChild(chip);
+                });
+            }
+            if (hasFilters) area.style.display = 'block';
+        } catch(e) { console.error('Filter load error', e); }
+    }
+
+    // ── Clear All Filters ──
+    document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+        currentSpecFilters = {};
+        currentSubreddit = null;
+        document.getElementById('subredditInput').value = '';
+        document.querySelectorAll('.spec-chip.active').forEach(c => c.classList.remove('active'));
+        renderActiveFilterTags();
+        loadGrid();
+    });
+
+    // ── Recently Added Products ──
+    async function loadRecentlyAddedProducts() {
+        try {
+            const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+            const res = await fetch(`${API_BASE}/rankings?limit=20&offset=0`);
+            if (!res.ok) return;
+            const data = await res.json();
+            const rankings = data.rankings || [];
+            const recent = rankings.filter(item => {
+                const p = item.product || {};
+                if (!p.created_at) return false;
+                return new Date(p.created_at) >= new Date(since);
+            });
+            const section = document.getElementById('recentlyAddedSection');
+            const scroll = document.getElementById('recentlyAddedScroll');
+            if (!recent.length) {
+                section.style.display = 'none';
+                return;
+            }
+            section.style.display = 'block';
+            scroll.innerHTML = recent.map(item => {
+                const p = item.product || {};
+                const name = `${p.brand || ''} ${p.model_name || ''}`.trim() || 'New Product';
+                const img = p.image_url || 'https://via.placeholder.com/180x110?text=📸';
+                return `
+                    <div class="new-product-card" data-id="${p.id}" data-review-count="${item.review_count || 0}">
+                        <span class="new-badge">🆕 NEW</span>
+                        <img src="${img}" onerror="this.src='https://via.placeholder.com/180x110?text=📸'" alt="${escapeHtml(name)}">
+                        <div class="new-product-card-body">
+                            <div class="new-product-card-name">${escapeHtml(name)}</div>
+                            <div style="font-size:0.72rem; color:var(--text-secondary); margin-top:0.2rem;">📝 ${item.review_count || 0} reviews</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            scroll.querySelectorAll('.new-product-card').forEach(card => {
+                card.addEventListener('click', () => showDetailView(card.dataset.id, card.dataset.reviewCount));
+            });
+        } catch(e) { console.error('Recently added error', e); }
+    }
+
+    // ── Recent Activity Feed ──
     async function loadRecentActivity() {
         try {
             const res = await fetch(`${API_BASE}/recent_activity?limit=5`);
             const data = await res.json();
             const feed = document.getElementById('activityFeed');
+            const note = document.getElementById('activityRefreshNote');
+            const now = new Date();
+            note.textContent = `• last updated ${now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
+
             if (!data.activity || data.activity.length === 0) {
-                feed.innerHTML = '📭 No recent activity';
+                feed.innerHTML = '<div style="color:var(--text-secondary); font-size:0.875rem; padding:0.25rem 0;">📭 No recent activity found.</div>';
                 return;
             }
-            let html = '<strong>🔄 Recent Reddit activity</strong><div style="margin-top:0.5rem;">';
-            for (let act of data.activity) {
+            feed.innerHTML = data.activity.map(act => {
                 const prod = act.product || {};
                 const name = `${prod.brand || ''} ${prod.model_name || ''}`.trim() || 'Product';
-                html += `<div class="activity-item">📌 <strong>${escapeHtml(name)}</strong> – <em>${escapeHtml(act.snippet)}</em><br><small>r/${escapeHtml(act.subreddit || 'reddit')} • ${new Date(act.created_at).toLocaleString()}</small></div>`;
-            }
-            html += '</div>';
-            feed.innerHTML = html;
+                const time = new Date(act.created_at).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+                return `
+                    <div class="activity-item">
+                        <div class="activity-dot"></div>
+                        <div class="activity-body">
+                            <div class="activity-product">${escapeHtml(name)}</div>
+                            <div class="activity-snippet">"${escapeHtml(act.snippet)}"</div>
+                            <div class="activity-meta">r/${escapeHtml(act.subreddit || 'reddit')} · ${time}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         } catch (e) { console.error('Activity feed error', e); }
     }
 
+    // ── Review of the Week ──
     async function loadReviewOfWeek() {
         try {
             const res = await fetch(`${API_BASE}/review_of_week`);
@@ -459,7 +976,7 @@
             if (data.review && data.review.product) {
                 const prod = data.review.product;
                 const name = `${prod.brand || ''} ${prod.model_name || ''}`.trim();
-                textSpan.innerText = `${name}: “${data.review.snippet}” (👍 ${data.review.helpful_score || 0})`;
+                textSpan.innerText = `${name}: "${data.review.snippet}" (👍 ${data.review.helpful_score || 0})`;
                 banner.style.display = 'block';
                 banner.onclick = () => showDetailView(data.review.product_id);
             } else {
@@ -468,6 +985,7 @@
         } catch (e) { console.error('Review of week error', e); }
     }
 
+    // ── Rankings Fetch ──
     async function fetchRankings(category, subreddit, offset, limit) {
         let url = `${API_BASE}/rankings?limit=${limit}&offset=${offset}`;
         if (category) url += `&category=${category}`;
@@ -488,27 +1006,34 @@
         return data.recommendations || [];
     }
 
+    // ── Render Product Cards (no rank badge) ──
     function renderProducts(rankings, isAppend = false) {
         const container = document.getElementById('productsContainer');
-        if (!rankings.length && !isAppend) { container.innerHTML = '<div class="error">😕 No products found.</div>'; return; }
+        if (!rankings.length && !isAppend) {
+            container.innerHTML = '<div style="padding:2rem; color:var(--text-secondary); text-align:center;">😕 No products found.</div>';
+            return;
+        }
         let html = '';
         for (let i = 0; i < rankings.length; i++) {
             const item = rankings[i];
             const p = item.product || {};
-            const trending = (p.trending) ? '<span class="trending-badge">🔥 Trending</span>' : '';
-            const totalReviews = (item.review_count !== undefined && item.review_count !== null) 
-                ? item.review_count 
+            const trending = p.trending ? '<span class="trending-badge">🔥 Trending</span>' : '';
+            const totalReviews = (item.review_count !== undefined && item.review_count !== null)
+                ? item.review_count
                 : ((item.positive_count || 0) + (item.negative_count || 0));
             html += `
                 <div class="product-card" data-id="${p.id}" data-review-count="${totalReviews}">
                     ${trending}
                     <div style="padding: 0.5rem 1rem 0;"><input type="checkbox" class="product-select" value="${p.id}" style="transform: scale(1.2);"></div>
                     <div style="position: relative;">
-                        <img class="product-img" src="${p.image_url || 'https://via.placeholder.com/300x180?text=📸'}" onerror="this.src='https://via.placeholder.com/300x180?text=📸'">
-                        <div style="position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 0.3rem 0.6rem; border-radius: 20px; font-size: 0.75rem;">📝 ${totalReviews} reviews</div>
+                        <img class="product-img" src="${p.image_url || 'https://via.placeholder.com/300x180?text=📸'}" onerror="this.src='https://via.placeholder.com/300x180?text=📸'" alt="${escapeHtml(p.brand || '')} ${escapeHtml(p.model_name || '')}">
+                        <div style="position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.65); color: white; padding: 0.25rem 0.6rem; border-radius: 20px; font-size: 0.72rem; font-weight: 600;">📝 ${totalReviews} reviews</div>
                     </div>
                     <div class="product-info">
-                        <div class="product-title"><strong>${escapeHtml(p.brand || '')}</strong> ${escapeHtml(p.model_name || '')}<span class="rank-badge">#${item.rank}</span></div>
+                        <div class="product-title">
+                            <strong>${escapeHtml(p.brand || '')}</strong>
+                            <span style="font-weight:400; color:var(--text-secondary);">${escapeHtml(p.model_name || '')}</span>
+                        </div>
                     </div>
                 </div>
             `;
@@ -518,7 +1043,7 @@
         } else {
             container.innerHTML = html;
         }
-        document.querySelectorAll('.product-card').forEach(card => {
+        container.querySelectorAll('.product-card').forEach(card => {
             const checkbox = card.querySelector('.product-select');
             const reviewCount = card.dataset.reviewCount;
             card.addEventListener('click', (e) => {
@@ -538,26 +1063,25 @@
     }
 
     async function loadGrid() {
-        currentCategory = document.getElementById('categorySelect').value;
         currentSubreddit = document.getElementById('subredditInput').value.trim() || null;
         currentOffset = 0;
-        document.getElementById('productsContainer').innerHTML = '<div class="loading">✨ Loading...</div>';
+        document.getElementById('productsContainer').innerHTML = '<div class="loading-pulse" style="padding:2rem; color:var(--text-secondary);">✨ Loading…</div>';
         document.getElementById('loadMoreBtn').style.display = 'block';
         try {
             const data = await fetchRankings(currentCategory, currentSubreddit, currentOffset, LIMIT);
             renderProducts(data.rankings || [], false);
-            if (data.rankings.length < LIMIT) document.getElementById('loadMoreBtn').style.display = 'none';
+            if ((data.rankings || []).length < LIMIT) document.getElementById('loadMoreBtn').style.display = 'none';
         } catch (err) {
-            document.getElementById('productsContainer').innerHTML = `<div class="error">⚠️ ${err.message}</div>`;
+            document.getElementById('productsContainer').innerHTML = `<div style="padding:2rem; color:var(--text-secondary);">⚠️ ${err.message}</div>`;
         }
     }
 
     async function showPersonalised(usecase) {
         const container = document.getElementById('personalisedResults');
-        container.innerHTML = '<div class="loading">⏳ Loading personalised picks...</div>';
+        container.innerHTML = '<div class="loading-pulse" style="color:var(--text-secondary);">⏳ Loading personalised picks…</div>';
         const recs = await fetchUsecase(usecase);
         if (!recs.length) {
-            container.innerHTML = '<p>No products found for this need.</p>';
+            container.innerHTML = '<p style="color:var(--text-secondary);">No products found for this need.</p>';
             return;
         }
         let html = '<div style="display:flex; flex-wrap:wrap; gap:1rem;">';
@@ -567,11 +1091,14 @@
             html += `
                 <div class="product-card" style="width:200px; cursor:pointer;" data-id="${p.id}" data-review-count="${reviewCount}">
                     <div style="position: relative;">
-                        <img class="product-img" src="${p.image_url || 'https://via.placeholder.com/200x120?text=📸'}" style="height:120px;">
-                        <div style="position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 0.3rem 0.6rem; border-radius: 20px; font-size: 0.75rem;">📝 ${reviewCount} reviews</div>
+                        <img class="product-img" src="${p.image_url || 'https://via.placeholder.com/200x120?text=📸'}" style="height:120px;" alt="${escapeHtml(p.brand || '')}">
+                        <div style="position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.65); color: white; padding: 0.25rem 0.6rem; border-radius: 20px; font-size: 0.72rem; font-weight:600;">📝 ${reviewCount} reviews</div>
                     </div>
                     <div class="product-info">
-                        <div class="product-title"><strong>${escapeHtml(p.brand || '')}</strong> ${escapeHtml(p.model_name || '')}</div>
+                        <div class="product-title">
+                            <strong>${escapeHtml(p.brand || '')}</strong>
+                            <span style="font-weight:400; color:var(--text-secondary);">${escapeHtml(p.model_name || '')}</span>
+                        </div>
                     </div>
                 </div>
             `;
@@ -594,9 +1121,9 @@
         const res = await fetch(url);
         const data = await res.json();
         if (data.error) { alert(data.error); return; }
-        let html = '<h3>Product Comparison</h3><table><th>Feature</th>';
+        let html = '<h3>Product Comparison</h3><table><tr><th>Feature</th>';
         for (let p of data.products) html += `<th>${escapeHtml(p.brand)} ${escapeHtml(p.model)}</th>`;
-        html += '<tr>';
+        html += '</tr>';
         html += `<tr><td>Sentiment Score</td>${data.products.map(p => `<td>${p.sentiment_score ? Math.round(p.sentiment_score*100) + '%' : 'N/A'}</td>`).join('')}</tr>`;
         html += `<tr><td>Reviews (pos/neg)</td>${data.products.map(p => `<td>${p.positive_count} / ${p.negative_count}</td>`).join('')}</tr>`;
         html += `<tr><td>Top Pros</td>${data.products.map(p => `<td>${p.pros.map(pr => `${pr.aspect} (${pr.count})`).join('<br>') || 'None'}</td>`).join('')}</tr>`;
@@ -668,7 +1195,7 @@
         const maxCount = sorted[0][1];
         for (let [sub, cnt] of sorted) {
             const width = (cnt / maxCount) * 100;
-            html += `<div class="heatmap-bar"><span class="heatmap-label">r/${escapeHtml(sub)}</span><div class="heatmap-fill" style="width: ${width}%; background: var(--btn-bg);"></div><span style="margin-left:0.5rem; font-size:0.7rem;">${cnt}</span></div>`;
+            html += `<div class="heatmap-bar"><span class="heatmap-label">r/${escapeHtml(sub)}</span><div class="heatmap-fill" style="width: ${width}%;"></div><span style="margin-left:0.5rem; font-size:0.7rem;">${cnt}</span></div>`;
         }
         html += '</div></div>';
         return html;
@@ -677,8 +1204,8 @@
     function renderDetail(product, reviews, aspects, providedReviewCount = null) {
         let totalReviews = providedReviewCount;
         if (totalReviews === null || totalReviews === undefined) {
-            totalReviews = (product.review_count !== undefined && product.review_count !== null) 
-                ? product.review_count 
+            totalReviews = (product.review_count !== undefined && product.review_count !== null)
+                ? product.review_count
                 : reviews.length;
         }
         const trending = isTrending(reviews) ? '<span class="trending-badge-inline">🔥 Trending</span>' : '';
@@ -703,7 +1230,7 @@
             reviewsHtml += `
                 <div class="review-card">
                     <div class="review-meta">
-                        <span>🧑‍💻 r/${escapeHtml(rev.subreddit || 'reddit')} • ${new Date(rev.created_at).toLocaleDateString()} <a href="${redditUrl}" target="_blank">🔗 View on Reddit</a></span>
+                        <span>🧑‍💻 r/${escapeHtml(rev.subreddit || 'reddit')} • ${new Date(rev.created_at).toLocaleDateString()} <a href="${redditUrl}" target="_blank" style="color:var(--btn-bg); font-weight:600;">🔗 View on Reddit</a></span>
                         <div class="vote-buttons">
                             <button class="vote-btn" data-review-id="${rev.id}" data-vote="1">👍</button>
                             <button class="vote-btn" data-review-id="${rev.id}" data-vote="-1">👎</button>
@@ -718,7 +1245,7 @@
 
         const shareUrl = `${window.location.origin}?id=${product.id}`;
         const badge = product.reddit_percentile ? (product.reddit_percentile >= 95 ? '🏆 Top 5%' : product.reddit_percentile >= 80 ? '🌟 Top 20%' : '✅ Popular') : '';
-        const imageHtml = product.image_url ? `<div class="product-detail-image"><img src="${product.image_url}" alt="${product.brand} ${product.model_name}"></div>` : '';
+        const imageHtml = product.image_url ? `<div class="product-detail-image"><img src="${product.image_url}" alt="${escapeHtml(product.brand)} ${escapeHtml(product.model_name)}"></div>` : '';
 
         const html = `
             <div class="product-detail-layout">
@@ -735,7 +1262,10 @@
                 </div>
             </div>
             ${heatmapHtml}
-            <div class="pros-cons-grid"><div class="pro-section"><h3>✅ Top Pros</h3>${prosHtml || '<p>No pros identified yet</p>'}</div><div class="con-section"><h3>❌ Top Cons</h3>${consHtml || '<p>No cons identified yet</p>'}</div></div>
+            <div class="pros-cons-grid">
+                <div class="pro-section"><h3>✅ Top Pros</h3>${prosHtml || '<p style="color:var(--text-secondary);">No pros identified yet</p>'}</div>
+                <div class="con-section"><h3>❌ Top Cons</h3>${consHtml || '<p style="color:var(--text-secondary);">No cons identified yet</p>'}</div>
+            </div>
             ${reviewsHtml}
         `;
         document.getElementById('detailContent').innerHTML = html;
@@ -795,16 +1325,12 @@
         }
     }
 
-
-
-
     async function showDetailView(productId, reviewCountFromCard = null) {
         document.getElementById('gridView').style.display = 'none';
         document.getElementById('detailView').style.display = 'block';
-        document.getElementById('detailContent').innerHTML = '<div class="loading">⏳ Loading...</div>';
+        document.getElementById('detailContent').innerHTML = '<div class="loading-pulse" style="color:var(--text-secondary);">⏳ Loading…</div>';
         try {
             const data = await fetchProductDetails(productId);
-            // Use the passed review count (from grid card) if available, otherwise fallback to product data
             renderDetail(data.product, data.reviews, data.aspects, reviewCountFromCard);
             if (data.product.category) {
                 const related = await fetch(`${API_BASE}/rankings?category=${data.product.category}&limit=4`);
@@ -813,7 +1339,7 @@
                 for (let rel of (relatedData.rankings || [])) {
                     if (rel.product.id === productId) continue;
                     const relReviewCount = (rel.review_count !== undefined && rel.review_count !== null) ? rel.review_count : ((rel.positive_count || 0) + (rel.negative_count || 0));
-                    relatedHtml += `<div class="related-card" data-id="${rel.product.id}" data-review-count="${relReviewCount}"><strong>${escapeHtml(rel.product.brand)} ${escapeHtml(rel.product.model_name)}</strong><br>👍 ${Math.round((rel.sentiment_score||0)*100)}%</div>`;
+                    relatedHtml += `<div class="related-card" data-id="${rel.product.id}" data-review-count="${relReviewCount}"><strong>${escapeHtml(rel.product.brand)} ${escapeHtml(rel.product.model_name)}</strong><br><span style="font-size:0.8rem; color:var(--text-secondary);">👍 ${Math.round((rel.sentiment_score||0)*100)}%</span></div>`;
                 }
                 relatedHtml += '</div>';
                 document.getElementById('relatedProducts').innerHTML = relatedHtml;
@@ -823,7 +1349,7 @@
                 });
             }
         } catch(err) {
-            document.getElementById('detailContent').innerHTML = `<div class="error">${err.message}</div>`;
+            document.getElementById('detailContent').innerHTML = `<div style="color:var(--text-secondary);">⚠️ ${err.message}</div>`;
         }
     }
 
@@ -833,28 +1359,38 @@
         loadGrid();
     }
 
+    // ── Update footer timestamp ──
+    function updateLastUpdated() {
+        const el = document.getElementById('lastUpdated');
+        if (el) el.textContent = `Updated ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
+    }
+
+    // ── Event Listeners ──
     document.getElementById('runBtn').addEventListener('click', () => { loadGrid(); });
     document.getElementById('backToGridBtn').addEventListener('click', showGridView);
     document.getElementById('compareBtn').addEventListener('click', compareProducts);
     document.getElementById('loadMoreBtn').addEventListener('click', loadMore);
     document.getElementById('closeModal').addEventListener('click', () => document.getElementById('compareModal').classList.add('hidden'));
     window.addEventListener('click', (e) => { if (e.target === document.getElementById('compareModal')) document.getElementById('compareModal').classList.add('hidden'); });
-    document.getElementById('categorySelect').addEventListener('change', () => {
-        updateUsecaseButtons();
-        loadGrid();
-    });
 
+    // ── Init ──
+    initCategoryChips();
+    updateUsecaseButtons();
+    loadFilters();
     loadRecentActivity();
     loadReviewOfWeek();
-    loadFilters();
+    loadRecentlyAddedProducts();
+    loadGrid();
+    updateLastUpdated();
+
+    // Auto-refresh every 30 seconds
     if (activityInterval) clearInterval(activityInterval);
     activityInterval = setInterval(() => {
         loadRecentActivity();
         loadReviewOfWeek();
-    }, 60000);
-
-    updateUsecaseButtons();
-    loadGrid();
+        loadRecentlyAddedProducts();
+        updateLastUpdated();
+    }, 30000);
 </script>
 </body>
 </html>
