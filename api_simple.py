@@ -236,7 +236,6 @@ def get_rankings(
         spec_filters["filter_type"] = spec_filter_type
 
     if spec_filters:
-        # Fetch all products with specs and filter client‑side (or use JSONB query)
         all_products = supabase_get("products", params={"select": "id,specs"})
         matched_ids = []
         for p in all_products:
@@ -252,9 +251,10 @@ def get_rankings(
             return {"rankings": []}
         product_ids = matched_ids
 
-    # Category filter
+    # Category filter — fetch products directly from products table so new
+    # products without ranking entries are still included in the response.
     if category:
-        cat_products = supabase_get("products", params={"category": f"eq.{category}", "select": "id"})
+        cat_products = supabase_get("products", params={"category": f"eq.{category}", "select": "id,brand,model_name,image_url,specs"})
         if not cat_products:
             return {"rankings": []}
         cat_ids = [p["id"] for p in cat_products]
@@ -265,33 +265,58 @@ def get_rankings(
         if not product_ids:
             return {"rankings": []}
 
-    ranking_params = {"order": "rank.asc", "limit": limit, "offset": offset}
+    # Fetch rankings for the resolved product set
+    ranking_params = {"order": "rank.asc", "limit": limit + 100, "offset": 0}
     if product_ids:
         ranking_params["product_id"] = f"in.({','.join(product_ids)})"
 
+    rankings = supabase_get("rankings", params=ranking_params)
+
+    # Determine which products have no ranking entry yet
+    ranked_product_ids = set(r["product_id"] for r in rankings)
+    unranked_ids = [pid for pid in (product_ids or []) if pid not in ranked_product_ids]
+
+    # Build default ranking stubs for unranked products so they still appear
+    if unranked_ids:
+        unranked_products = supabase_get("products", params={"id": f"in.({','.join(unranked_ids)})"})
+        for prod in unranked_products:
+            reviews = supabase_get("reviews", params={"product_id": f"eq.{prod['id']}", "select": "id"})
+            review_count = len(reviews) if reviews else 0
+            rankings.append({
+                "product_id": prod["id"],
+                "rank": 999,
+                "sentiment_score": 0.5,
+                "positive_count": 0,
+                "negative_count": 0,
+                "review_count": review_count,
+            })
+
+    # Apply subreddit filter
     if subreddit:
         reviews = supabase_get("reviews", params={"select": "product_id", "subreddit": f"eq.{subreddit}"})
         if not reviews:
             return {"rankings": []}
-        sub_ids = list(set([r["product_id"] for r in reviews]))
-        if product_ids:
-            product_ids = list(set(product_ids) & set(sub_ids))
-        else:
-            product_ids = sub_ids
-        if not product_ids:
-            return {"rankings": []}
-        ranking_params["product_id"] = f"in.({','.join(product_ids)})"
+        sub_ids = set(r["product_id"] for r in reviews)
+        rankings = [r for r in rankings if r["product_id"] in sub_ids]
 
-    rankings = supabase_get("rankings", params=ranking_params)
     if not rankings:
         return {"rankings": []}
 
-    # Fetch product details
+    # Sort by rank then apply pagination
+    rankings.sort(key=lambda x: x.get("rank", 999))
+    rankings = rankings[offset:offset + limit]
+
+    # Fetch product details for the final page
     all_product_ids = [r["product_id"] for r in rankings]
     products = supabase_get("products", params={"id": f"in.({','.join(all_product_ids)})"})
     product_map = {p["id"]: p for p in products}
+
     for r in rankings:
         r["product"] = product_map.get(r["product_id"], {})
+        if "review_count" not in r:
+            reviews = supabase_get("reviews", params={"product_id": f"eq.{r['product_id']}", "select": "id"})
+            r["review_count"] = len(reviews) if reviews else 0
+
     return {"rankings": rankings, "limit": limit, "offset": offset}
 
 # ---------- Product details (includes aspects, specs, percentile) ----------
