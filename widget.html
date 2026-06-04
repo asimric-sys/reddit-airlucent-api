@@ -639,9 +639,17 @@
     // This widget is exclusively licensed for use on airlucent.com.
     // Copying and embedding it on any other domain is not permitted.
     (function () {
-        const ALLOWED_HOSTNAMES = ['airlucent.com', 'www.airlucent.com'];
         const hostname = window.location.hostname;
-        if (!ALLOWED_HOSTNAMES.includes(hostname)) {
+        // Allow: airlucent.com, any subdomain of airlucent.com (covers www,
+        // staging, wp-admin, etc.), the Railway deployment URL for owner
+        // testing, and localhost for local development.
+        const isAllowed =
+            hostname === 'airlucent.com' ||
+            hostname.endsWith('.airlucent.com') ||
+            hostname === 'reddit-airlucent-api-production.up.railway.app' ||
+            hostname === 'localhost' ||
+            hostname === '127.0.0.1';
+        if (!isAllowed) {
             // Wipe the entire document and replace with a permanent error banner.
             document.open();
             document.write(`<!DOCTYPE html>
