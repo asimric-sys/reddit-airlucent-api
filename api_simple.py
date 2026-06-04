@@ -404,12 +404,18 @@ def get_brands(request: Request, category: Optional[str] = None):
 @app.get("/categories")
 @limiter.limit("100/minute")
 def get_categories(request: Request):
+    cache_key = "categories"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return cached
     products = supabase_get("products", params={"select": "category"})
     categories = set()
     for p in products:
         if p.get("category"):
             categories.add(p["category"])
-    return {"categories": sorted(list(categories))}
+    result = {"categories": sorted(list(categories))}
+    cache_set(cache_key, result, ttl=60)
+    return result
 
 # ---------- Use-case ----------
 USECASE_KEYWORDS = {
@@ -522,10 +528,12 @@ def submit_user_review(request: Request, review: UserReview):
     resp = supabase_post("user_reviews", data)
     if resp is None:
         return {"error": "Failed to submit review"}
-    # Invalidate relevant caches (optional)
+    # Invalidate relevant caches so new products/categories appear immediately
     if redis_client:
         for key in redis_client.scan_iter("rankings:*"):
             redis_client.delete(key)
+        redis_client.delete("categories")
+        redis_client.delete("filters")
     return {"message": "Review submitted, awaiting verification"}
 
 # ---------- NEW: Dynamic filters ----------
@@ -574,7 +582,7 @@ def get_filters(request: Request):
             lst.append("Not specified")
         result[k] = lst
     
-    cache_set(cache_key, result, ttl=3600)
+    cache_set(cache_key, result, ttl=60)
     return result
 
 # ---------- NEW: Recent activity feed ----------
