@@ -133,6 +133,7 @@ app.add_middleware(
     allow_origins=[
         "https://airlucent.com",
         "https://www.airlucent.com",
+        "https://reddit-airlucent-api-production.up.railway.app",
         ALLOWED_ORIGIN,  # kept for local development fallback
     ],
     allow_methods=["GET", "POST"],
@@ -140,15 +141,38 @@ app.add_middleware(
 )
 
 # ---------- Origin validation middleware ----------
-# Allowed widget origins — only airlucent.com and its www subdomain.
+# Allowed widget origins — airlucent.com and its subdomains (covers www,
+# staging, wp-admin, etc.), the Railway deployment URL for owner testing,
+# and localhost for local development.
 # This is a defence-in-depth layer on top of CORS: CORS headers tell
 # browsers to block cross-origin reads, but this middleware actively
 # rejects requests whose Origin header does not match, preventing
 # server-side abuse by non-browser clients that forge the header.
-ALLOWED_ORIGINS = {
+ALLOWED_ORIGIN_EXACT = {
     "https://airlucent.com",
     "https://www.airlucent.com",
+    "https://reddit-airlucent-api-production.up.railway.app",
+    "http://localhost",
+    "http://127.0.0.1",
 }
+ALLOWED_ORIGIN_SUBDOMAIN_SUFFIX = ".airlucent.com"
+
+
+def _is_allowed_origin(origin: str) -> bool:
+    """Return True if the origin is permitted to use this API."""
+    if origin in ALLOWED_ORIGIN_EXACT:
+        return True
+    # Allow any subdomain of airlucent.com (e.g. staging.airlucent.com,
+    # wp-admin.airlucent.com) over either http or https.
+    try:
+        from urllib.parse import urlparse
+        host = urlparse(origin).hostname or ""
+        if host.endswith(ALLOWED_ORIGIN_SUBDOMAIN_SUFFIX):
+            return True
+    except Exception:
+        pass
+    return False
+
 
 @app.middleware("http")
 async def validate_origin(request: Request, call_next):
@@ -172,7 +196,7 @@ async def validate_origin(request: Request, call_next):
             content={"error": "Forbidden: requests must originate from airlucent.com."},
         )
 
-    if origin not in ALLOWED_ORIGINS:
+    if not _is_allowed_origin(origin):
         return JSONResponse(
             status_code=403,
             content={"error": "Forbidden: this API is only accessible from airlucent.com."},
