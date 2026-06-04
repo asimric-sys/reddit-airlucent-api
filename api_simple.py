@@ -58,6 +58,8 @@ PROTECTED_WRITE_PATHS = {
 
 # Allowed CORS origin(s). Set ALLOWED_ORIGIN in Railway to your WordPress domain,
 # e.g. "https://www.example.com". Defaults to localhost for local development.
+# The CORS middleware uses this value; the validate_origin middleware below
+# enforces the airlucent.com allowlist as a hard server-side check.
 ALLOWED_ORIGIN = os.getenv("ALLOWED_ORIGIN", "http://localhost")
 
 
@@ -128,10 +130,55 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
 # browsers can include it in pre-flight and actual requests.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[ALLOWED_ORIGIN],
+    allow_origins=[
+        "https://airlucent.com",
+        "https://www.airlucent.com",
+        ALLOWED_ORIGIN,  # kept for local development fallback
+    ],
     allow_methods=["GET", "POST"],
-    allow_headers=["X-API-Key", "Content-Type"],
+    allow_headers=["X-API-Key", "Content-Type", "Origin"],
 )
+
+# ---------- Origin validation middleware ----------
+# Allowed widget origins — only airlucent.com and its www subdomain.
+# This is a defence-in-depth layer on top of CORS: CORS headers tell
+# browsers to block cross-origin reads, but this middleware actively
+# rejects requests whose Origin header does not match, preventing
+# server-side abuse by non-browser clients that forge the header.
+ALLOWED_ORIGINS = {
+    "https://airlucent.com",
+    "https://www.airlucent.com",
+}
+
+@app.middleware("http")
+async def validate_origin(request: Request, call_next):
+    # Skip origin enforcement for the widget.html page itself (it is served
+    # directly, not fetched cross-origin) and for the root health-check.
+    path = request.url.path
+    if path in ("/", "/widget.html", "/debug/routes"):
+        return await call_next(request)
+
+    origin = request.headers.get("origin", "").strip()
+
+    # Requests without an Origin header are typically server-to-server or
+    # direct curl calls.  Reject them unless they carry a valid API key so
+    # that legitimate admin tooling still works.
+    if not origin:
+        api_key = request.headers.get("X-API-Key", "")
+        if ADMIN_API_KEY and api_key == ADMIN_API_KEY:
+            return await call_next(request)
+        return JSONResponse(
+            status_code=403,
+            content={"error": "Forbidden: requests must originate from airlucent.com."},
+        )
+
+    if origin not in ALLOWED_ORIGINS:
+        return JSONResponse(
+            status_code=403,
+            content={"error": "Forbidden: this API is only accessible from airlucent.com."},
+        )
+
+    return await call_next(request)
 
 # ---------- API key authentication middleware ----------
 # Security model:

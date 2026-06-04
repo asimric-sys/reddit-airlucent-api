@@ -635,7 +635,73 @@
 </div>
 
 <script>
+    // ── Domain Restriction ──
+    // This widget is exclusively licensed for use on airlucent.com.
+    // Copying and embedding it on any other domain is not permitted.
+    (function () {
+        const ALLOWED_HOSTNAMES = ['airlucent.com', 'www.airlucent.com'];
+        const hostname = window.location.hostname;
+        if (!ALLOWED_HOSTNAMES.includes(hostname)) {
+            // Wipe the entire document and replace with a permanent error banner.
+            document.open();
+            document.write(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unauthorized</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; width: 100%; overflow: hidden; }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #1a1714;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    }
+    .error-banner {
+      background: #7f1d1d;
+      border: 2px solid #ef4444;
+      border-radius: 16px;
+      padding: 2.5rem 3rem;
+      text-align: center;
+      max-width: 480px;
+      width: 90%;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+      pointer-events: none;
+      user-select: none;
+    }
+    .error-banner .icon { font-size: 3rem; margin-bottom: 1rem; display: block; }
+    .error-banner h1 { color: #fca5a5; font-size: 1.4rem; font-weight: 800; margin-bottom: 0.75rem; }
+    .error-banner p { color: #fecaca; font-size: 0.95rem; line-height: 1.6; }
+    .error-banner .domain { color: #f87171; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="error-banner">
+    <span class="icon">🚫</span>
+    <h1>This widget is only available on airlucent.com</h1>
+    <p>This widget is exclusively licensed for <span class="domain">airlucent.com</span>. It cannot be embedded or used on any other domain.</p>
+  </div>
+</body>
+</html>`);
+            document.close();
+            // Belt-and-suspenders: stop all further script execution.
+            throw new Error('Widget blocked: unauthorized domain "' + hostname + '"');
+        }
+    })();
+
     const API_BASE = 'https://reddit-airlucent-api-production.up.railway.app';
+
+    // Default fetch options that attach the Origin header to every API request.
+    // The backend validates this header as a second layer of domain enforcement.
+    const API_FETCH_OPTS = {
+        headers: {
+            'Origin': 'https://airlucent.com'
+        }
+    };
+
     const LIMIT = 12;
     let currentOffset = 0;
     let currentCategory = '';
@@ -788,7 +854,7 @@
     // ── Dynamic Category Loading ──
     async function loadCategories() {
         try {
-            const res = await fetch(`${API_BASE}/categories`);
+            const res = await fetch(`${API_BASE}/categories`, API_FETCH_OPTS);
             const data = await res.json();
             const container = document.getElementById('categoryChips');
 
@@ -848,7 +914,7 @@
     // ── Spec Filters (chip-based) ──
     async function loadFilters() {
         try {
-            const res = await fetch(`${API_BASE}/filters`);
+            const res = await fetch(`${API_BASE}/filters`, API_FETCH_OPTS);
             const filters = await res.json();
             const container = document.getElementById('specFilters');
             const area = document.getElementById('specFiltersArea');
@@ -903,7 +969,7 @@
     async function loadRecentlyAddedProducts() {
         try {
             const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-            const res = await fetch(`${API_BASE}/rankings?limit=20&offset=0`);
+            const res = await fetch(`${API_BASE}/rankings?limit=20&offset=0`, API_FETCH_OPTS);
             if (!res.ok) return;
             const data = await res.json();
             const rankings = data.rankings || [];
@@ -944,13 +1010,13 @@
     async function loadRecentActivity() {
         try {
             // Fetch all products from rankings
-            const res = await fetch(`${API_BASE}/rankings?limit=100`);
+            const res = await fetch(`${API_BASE}/rankings?limit=100`, API_FETCH_OPTS);
             const data = await res.json();
 
             // Collect all reviews from all products
             const allReviews = [];
             for (let item of (data.rankings || [])) {
-                const productRes = await fetch(`${API_BASE}/product/${item.product_id}`);
+                const productRes = await fetch(`${API_BASE}/product/${item.product_id}`, API_FETCH_OPTS);
                 const productData = await productRes.json();
                 if (productData.reviews) {
                     for (let rev of productData.reviews) {
@@ -997,7 +1063,7 @@
     // ── Review of the Week ──
     async function loadReviewOfWeek() {
         try {
-            const res = await fetch(`${API_BASE}/review_of_week`);
+            const res = await fetch(`${API_BASE}/review_of_week`, API_FETCH_OPTS);
             const data = await res.json();
             const banner = document.getElementById('weekReviewBanner');
             const textSpan = document.getElementById('weekReviewText');
@@ -1021,14 +1087,14 @@
         for (const [key, val] of Object.entries(currentSpecFilters)) {
             url += `&spec_${key}=${encodeURIComponent(val)}`;
         }
-        const res = await fetch(url);
+        const res = await fetch(url, API_FETCH_OPTS);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
     }
 
     async function fetchUsecase(usecase) {
         if (!usecase || usecase === 'general') return [];
-        const res = await fetch(`${API_BASE}/usecase/${usecase}?limit=20`);
+        const res = await fetch(`${API_BASE}/usecase/${usecase}?limit=20`, API_FETCH_OPTS);
         if (!res.ok) return [];
         const data = await res.json();
         return data.recommendations || [];
@@ -1156,7 +1222,7 @@
             return;
         }
         const url = `${API_BASE}/compare?ids=${selected.join(',')}`;
-        const res = await fetch(url);
+        const res = await fetch(url, API_FETCH_OPTS);
         const data = await res.json();
         if (data.error) { alert(data.error); return; }
         let html = '<h3>Product Comparison</h3><table><tr><th>Feature</th>';
@@ -1174,7 +1240,7 @@
     }
 
     async function fetchProductDetails(productId) {
-        const res = await fetch(`${API_BASE}/product/${productId}`);
+        const res = await fetch(`${API_BASE}/product/${productId}`, API_FETCH_OPTS);
         if (!res.ok) throw new Error('Product not found');
         return res.json();
     }
@@ -1194,7 +1260,7 @@
         try {
             const res = await fetch(`${API_BASE}/vote`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Origin': 'https://airlucent.com' },
                 body: JSON.stringify({ review_id: reviewId, vote: voteValue })
             });
             const result = await res.json();
@@ -1370,7 +1436,7 @@
             const data = await fetchProductDetails(productId);
             renderDetail(data.product, data.reviews, data.aspects, reviewCountFromCard);
             if (data.product.category) {
-                const related = await fetch(`${API_BASE}/rankings?category=${data.product.category}&limit=4`);
+                const related = await fetch(`${API_BASE}/rankings?category=${data.product.category}&limit=4`, API_FETCH_OPTS);
                 const relatedData = await related.json();
                 let relatedHtml = '<h3>🔗 Other products from same category</h3><div class="related-grid">';
                 for (let rel of (relatedData.rankings || [])) {
