@@ -184,18 +184,15 @@ async def validate_origin(request: Request, call_next):
 
     origin = request.headers.get("origin", "").strip()
 
-    # Requests without an Origin header are typically server-to-server or
-    # direct curl calls.  Reject them unless they carry a valid API key so
-    # that legitimate admin tooling still works.
+    # Requests without an Origin header are same-origin requests (e.g. the
+    # widget fetching its own API on the Railway domain).  Browsers only attach
+    # an Origin header for cross-origin requests, so the absence of the header
+    # is a reliable signal that the request is same-origin and should be
+    # allowed unconditionally.
     if not origin:
-        api_key = request.headers.get("X-API-Key", "")
-        if ADMIN_API_KEY and api_key == ADMIN_API_KEY:
-            return await call_next(request)
-        return JSONResponse(
-            status_code=403,
-            content={"error": "Forbidden: requests must originate from airlucent.com."},
-        )
+        return await call_next(request)
 
+    # Cross-origin request: validate the Origin against the allowlist.
     if not _is_allowed_origin(origin):
         return JSONResponse(
             status_code=403,
