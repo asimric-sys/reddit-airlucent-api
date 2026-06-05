@@ -877,7 +877,7 @@ def admin_backfill_affiliates(request: Request, limit: int = 10, offset: int = 0
         return {"processed": 0, "remaining": max(0, len(products) - offset), "message": "Offset past end"}
 
     AMAZON_TAG = os.getenv("AMAZON_ASSOCIATE_TAG", "flawlesscar-20")
-    results = {"success": 0, "no_asin": 0, "error": 0, "total_in_batch": len(batch), "remaining": max(0, len(products) - offset - len(batch))}
+    results = {"success": 0, "no_asin": 0, "error": 0, "total_in_batch": len(batch), "remaining": max(0, len(products) - offset - len(batch)), "errors": []}
     dp_pattern = re.compile(r"/dp/([A-Z0-9]{10})")
 
     for prod in batch:
@@ -897,17 +897,44 @@ def admin_backfill_affiliates(request: Request, limit: int = 10, offset: int = 0
                         break
                 if asin:
                     affiliate_url = f"https://www.amazon.com/dp/{asin}?tag={AMAZON_TAG}"
-                    ok = supabase_patch(f"products?id=eq.{pid}", {"affiliate_url": affiliate_url, "amazon_asin": asin})
-                    if ok:
+                    # Patch just affiliate_url first (known working pattern)
+                    patch_result = supabase_patch(f"products?id=eq.{pid}", {"affiliate_url": affiliate_url})
+                    if patch_result:
+                        # Also set amazon_asin
+                        supabase_patch(f"products?id=eq.{pid}", {"amazon_asin": asin})
                         results["success"] += 1
                     else:
                         results["error"] += 1
+                        results["errors"].append(f"PATCH failed for {brand} {model} (pid={pid[:8]}): patch returned None")
                 else:
                     results["no_asin"] += 1
         except Exception:
             results["error"] += 1
 
     return results
+
+
+# ---------- Debug: test Supabase patch ----------
+@app.get("/debug/test-patch")
+def debug_test_patch():
+    """Test patching a product's affiliate_url to verify Supabase write access."""
+    products = supabase_get("products", params={"select": "id,brand,model_name,affiliate_url", "limit": 5})
+    if not products:
+        return {"error": "No products"}
+    p = products[0]
+    pid = p["id"]
+    test_url = f"https://www.amazon.com/dp/TESTASIN123?tag=test"
+    url = f"{SUPABASE_URL}/rest/v1/products?id=eq.{pid}"
+    headers = {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}", "Content-Type": "application/json"}
+    resp = requests.patch(url, headers=headers, json={"affiliate_url": test_url}, timeout=10)
+    return {
+        "product_id": pid,
+        "brand": p["brand"],
+        "model": p["model_name"],
+        "supabase_status": resp.status_code,
+        "supabase_response": resp.text[:200],
+        "headers_sent": "yes" if SUPABASE_KEY else "no",
+    }
 
 
 # ---------- Debug routes ----------
