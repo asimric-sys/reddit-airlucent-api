@@ -806,12 +806,17 @@ def admin_backfill_images(request: Request, limit: int = 10, offset: int = 0):
     Returns summary of processed products.
     """
     products = supabase_get("products", params={
-        "select": "id,brand,model_name",
-        "image_url": "is.null",
+        "select": "id,brand,model_name,image_url",
         "limit": 1000,
     })
     if not products:
         return {"processed": 0, "remaining": 0, "message": "No products without images"}
+
+    # Filter: no image if null OR empty string
+    products = [p for p in products if not p.get("image_url")]
+
+    if not products:
+        return {"processed": 0, "remaining": 0, "message": "All products have images"}
 
     batch = products[offset:offset + limit]
     if not batch:
