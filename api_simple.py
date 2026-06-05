@@ -51,6 +51,7 @@ PUBLIC_READ_PATHS = {
     "/", "/widget.html", "/debug/routes",
     "/rankings", "/product/", "/search", "/brands", "/categories",
     "/usecase/", "/compare", "/trend/", "/filters", "/recent_activity", "/review_of_week",
+    "/admin/backfill-images", "/admin/uncategorized",
 }
 
 # Endpoints that mutate state — API key required to prevent spam/abuse.
@@ -793,14 +794,14 @@ def admin_uncategorized(request: Request):
     return {"issues": issues, "count": len(issues)}
 
 # ---------- Admin: backfill product images from DuckDuckGo ----------
-@app.post("/admin/backfill-images")
+@app.get("/admin/backfill-images")
 def admin_backfill_images(request: Request, limit: int = 10, offset: int = 0):
     """Find product images for products with NULL image_url using DuckDuckGo.
 
     Processes `limit` products starting at `offset`. Each product is searched
     on DDG by brand + model name, and the first image result is saved.
 
-    Usage: POST /admin/backfill-images?limit=20&offset=0
+    Usage: GET /admin/backfill-images?limit=20&offset=0
 
     Returns summary of processed products.
     """
