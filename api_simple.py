@@ -325,7 +325,7 @@ def get_rankings(
     spec_filter_type: str = None
 ):
     # Start with all products
-    product_params = {"select": "id,brand,model_name,category,image_url,specs,created_at"}
+    product_params = {"select": "id,brand,model_name,category,image_url,specs,created_at,affiliate_url"}
 
     # Category filter
     if category:
