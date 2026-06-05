@@ -11,6 +11,8 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from typing import Optional
+import time
+from ddgs import DDGS
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -789,6 +791,56 @@ def admin_uncategorized(request: Request):
         if cat == "vacuum-cleaner" and "router" in (p.get("model_name") or "").lower():
             issues.append({"id": p["id"], "brand": p["brand"], "model": p["model_name"], "current": cat, "suggested": "wifi-router"})
     return {"issues": issues, "count": len(issues)}
+
+# ---------- Admin: backfill product images from DuckDuckGo ----------
+@app.post("/admin/backfill-images")
+def admin_backfill_images(request: Request, limit: int = 10, offset: int = 0):
+    """Find product images for products with NULL image_url using DuckDuckGo.
+
+    Processes `limit` products starting at `offset`. Each product is searched
+    on DDG by brand + model name, and the first image result is saved.
+
+    Usage: POST /admin/backfill-images?limit=20&offset=0
+
+    Returns summary of processed products.
+    """
+    products = supabase_get("products", params={
+        "select": "id,brand,model_name",
+        "image_url": "is.null",
+        "limit": 1000,
+    })
+    if not products:
+        return {"processed": 0, "remaining": 0, "message": "No products without images"}
+
+    batch = products[offset:offset + limit]
+    if not batch:
+        return {"processed": 0, "remaining": max(0, len(products) - offset), "message": "Offset past end"}
+
+    results = {"success": 0, "no_image": 0, "error": 0, "total_in_batch": len(batch), "remaining": max(0, len(products) - offset - len(batch))}
+
+    for prod in batch:
+        pid = prod["id"]
+        brand = prod.get("brand", "")
+        model = prod.get("model_name", "")
+        query = f"{brand} {model} product"
+        try:
+            with DDGS() as ddgs:
+                images = list(ddgs.images(query, max_results=1))
+                if images and images[0].get("image"):
+                    img_url = images[0]["image"]
+                    ok = supabase_patch(f"products?id=eq.{pid}", {"image_url": img_url})
+                    if ok:
+                        results["success"] += 1
+                    else:
+                        results["error"] += 1
+                else:
+                    results["no_image"] += 1
+        except Exception:
+            results["error"] += 1
+        time.sleep(1)
+
+    return results
+
 
 # ---------- Debug routes ----------
 @app.get("/debug/routes")
