@@ -272,12 +272,38 @@ def supabase_patch(endpoint, data):
         return None
     return resp
 
+# ---------- Helper: compute product stats from reviews (no rankings table) ----------
+def compute_product_stats(product_ids: list) -> dict:
+    """Return a dict of {product_id: {positive_count, negative_count, review_count, sentiment_score}}
+    computed live from the reviews table."""
+    if not product_ids:
+        return {}
+    reviews = supabase_get("reviews", params={"product_id": f"in.({','.join(product_ids)})", "select": "product_id,sentiment"})
+    stats = {}
+    for r in reviews:
+        pid = r["product_id"]
+        if pid not in stats:
+            stats[pid] = {"positive_count": 0, "negative_count": 0, "neutral_count": 0, "review_count": 0}
+        stats[pid]["review_count"] += 1
+        sent = r.get("sentiment", "neutral")
+        if sent == "positive":
+            stats[pid]["positive_count"] += 1
+        elif sent == "negative":
+            stats[pid]["negative_count"] += 1
+        else:
+            stats[pid]["neutral_count"] += 1
+    for pid in stats:
+        s = stats[pid]
+        total = s["positive_count"] + s["negative_count"]
+        s["sentiment_score"] = round(s["positive_count"] / total, 2) if total > 0 else 0.5
+    return stats
+
 # ---------- Root ----------
 @app.get("/")
 def root():
     return {"message": "RedditRecs API is running", "endpoints": ["/rankings", "/product/{product_id}", "/search", "/brands", "/categories", "/usecase/{case}", "/compare", "/trend/{product_id}", "/user_review", "/filters", "/recent_activity", "/vote", "/review_of_week"]}
 
-# ---------- Rankings with category, subreddit, pagination, AND spec filters ----------
+# ---------- Rankings (computed live from products + reviews — no rankings table) ----------
 @app.get("/rankings")
 @limiter.limit("100/minute")
 def get_rankings(
@@ -291,8 +317,22 @@ def get_rankings(
     spec_energy_efficiency: str = None,
     spec_filter_type: str = None
 ):
-    # Build product ID list based on spec filters
-    product_ids = None
+    # Start with all products
+    product_params = {"select": "id,brand,model_name,category,image_url,specs,created_at"}
+
+    # Category filter
+    if category:
+        product_params["category"] = f"eq.{category}"
+
+    products = supabase_get("products", params=product_params)
+    if not products:
+        return {"rankings": []}
+
+    # Build product lookup
+    product_map = {p["id"]: p for p in products}
+    product_ids = list(product_map.keys())
+
+    # Spec filter — client-side matching
     spec_filters = {}
     if spec_room_size:
         spec_filters["room_size"] = spec_room_size
@@ -304,98 +344,64 @@ def get_rankings(
         spec_filters["filter_type"] = spec_filter_type
 
     if spec_filters:
-        all_products = supabase_get("products", params={"select": "id,specs"})
         matched_ids = []
-        for p in all_products:
-            specs = p.get("specs", {})
+        for pid, prod in product_map.items():
+            specs = prod.get("specs", {}) or {}
             match = True
             for key, val in spec_filters.items():
-                if specs.get(key) != val:
+                if specs.get(key, "").lower() != val.lower():
                     match = False
                     break
             if match:
-                matched_ids.append(p["id"])
+                matched_ids.append(pid)
         if not matched_ids:
             return {"rankings": []}
         product_ids = matched_ids
 
-    # Category filter — fetch products directly from products table so new
-    # products without ranking entries are still included in the response.
-    if category:
-        cat_products = supabase_get("products", params={"category": f"eq.{category}", "select": "id,brand,model_name,image_url,specs"})
-        if not cat_products:
+    # Subreddit filter
+    if subreddit:
+        sub_reviews = supabase_get("reviews", params={"select": "product_id", "subreddit": f"eq.{subreddit}"})
+        if not sub_reviews:
             return {"rankings": []}
-        cat_ids = [p["id"] for p in cat_products]
-        if product_ids:
-            product_ids = list(set(product_ids) & set(cat_ids))
-        else:
-            product_ids = cat_ids
+        sub_ids = set(r["product_id"] for r in sub_reviews)
+        product_ids = [pid for pid in product_ids if pid in sub_ids]
         if not product_ids:
             return {"rankings": []}
 
-    # Fetch rankings for the resolved product set
-    ranking_params = {"order": "rank.asc", "limit": limit + 100, "offset": 0}
-    if product_ids:
-        ranking_params["product_id"] = f"in.({','.join(product_ids)})"
+    # Compute stats live from reviews
+    stats = compute_product_stats(product_ids)
 
-    rankings = supabase_get("rankings", params=ranking_params)
-    ranked_product_ids = set(r["product_id"] for r in rankings)
+    # Build rankings response
+    rankings = []
+    for pid in product_ids:
+        prod = product_map.get(pid, {})
+        s = stats.get(pid, {"positive_count": 0, "negative_count": 0, "review_count": 0, "sentiment_score": 0.5})
+        rankings.append({
+            "product_id": pid,
+            "rank": 0,  # will be set after sorting
+            "sentiment_score": s["sentiment_score"],
+            "positive_count": s["positive_count"],
+            "negative_count": s["negative_count"],
+            "review_count": s["review_count"],
+            "product": prod,
+        })
 
-    # Build list of product IDs we expect to see
-    expected_ids = product_ids  # None means "all products"
-    if expected_ids is None:
-        # No category/spec filter — fetch ALL products from DB so new
-        # unranked products still appear in the response.
-        all_products = supabase_get("products", params={"select": "id"})
-        expected_ids = [p["id"] for p in all_products] if all_products else []
+    # Sort by review_count descending, then newest first
+    rankings.sort(key=lambda x: (-x["review_count"], x["product"].get("created_at", "") or ""), reverse=False)
+    # Actually sort by review_count desc
+    rankings.sort(key=lambda x: x["review_count"], reverse=True)
 
-    # Determine which products have no ranking entry yet
-    unranked_ids = [pid for pid in expected_ids if pid not in ranked_product_ids]
+    # Assign sequential rank
+    for i, r in enumerate(rankings):
+        r["rank"] = i + 1
 
-    # Build default ranking stubs for unranked products so they still appear
-    if unranked_ids:
-        unranked_products = supabase_get("products", params={"id": f"in.({','.join(unranked_ids)})"})
-        for prod in unranked_products:
-            reviews = supabase_get("reviews", params={"product_id": f"eq.{prod['id']}", "select": "id"})
-            review_count = len(reviews) if reviews else 0
-            rankings.append({
-                "product_id": prod["id"],
-                "rank": 999,
-                "sentiment_score": 0.5,
-                "positive_count": 0,
-                "negative_count": 0,
-                "review_count": review_count,
-            })
-
-    # Apply subreddit filter
-    if subreddit:
-        reviews = supabase_get("reviews", params={"select": "product_id", "subreddit": f"eq.{subreddit}"})
-        if not reviews:
-            return {"rankings": []}
-        sub_ids = set(r["product_id"] for r in reviews)
-        rankings = [r for r in rankings if r["product_id"] in sub_ids]
-
-    if not rankings:
-        return {"rankings": []}
-
-    # Sort by rank then apply pagination
-    rankings.sort(key=lambda x: x.get("rank", 999))
+    # Paginate
+    total = len(rankings)
     rankings = rankings[offset:offset + limit]
 
-    # Fetch product details for the final page
-    all_product_ids = [r["product_id"] for r in rankings]
-    products = supabase_get("products", params={"id": f"in.({','.join(all_product_ids)})"})
-    product_map = {p["id"]: p for p in products}
+    return {"rankings": rankings, "limit": limit, "offset": offset, "total": total}
 
-    for r in rankings:
-        r["product"] = product_map.get(r["product_id"], {})
-        if "review_count" not in r:
-            reviews = supabase_get("reviews", params={"product_id": f"eq.{r['product_id']}", "select": "id"})
-            r["review_count"] = len(reviews) if reviews else 0
-
-    return {"rankings": rankings, "limit": limit, "offset": offset}
-
-# ---------- Product details (includes aspects, specs, percentile) ----------
+# ---------- Product details (no rankings table needed) ----------
 @app.get("/product/{product_id}")
 @limiter.limit("100/minute")
 def product_details(request: Request, product_id: str):
@@ -404,17 +410,13 @@ def product_details(request: Request, product_id: str):
         return {"error": "Product not found"}
     reviews = supabase_get("reviews", params={"product_id": f"eq.{product_id}", "order": "created_at.desc", "limit": 50})
     aspects = supabase_get("product_aspects", params={"product_id": f"eq.{product_id}"})
-    # Compute percentile
-    all_scores = supabase_get("rankings", params={"select": "sentiment_score", "order": "sentiment_score.asc"})
-    product_rankings = supabase_get("rankings", params={"product_id": f"eq.{product_id}"})
-    product_score = product_rankings[0]["sentiment_score"] if product_rankings else 0
-    scores = [s["sentiment_score"] for s in all_scores if s["sentiment_score"] is not None]
-    if scores:
-        rank = sum(1 for s in scores if s < product_score) + 1
-        percentile = int((rank / len(scores)) * 100)
-    else:
-        percentile = 0
-    product[0]["reddit_percentile"] = percentile
+    # Compute stats live
+    stats = compute_product_stats([product_id])
+    s = stats.get(product_id, {"positive_count": 0, "negative_count": 0, "review_count": 0, "sentiment_score": 0.5})
+    product[0]["review_count"] = s["review_count"]
+    product[0]["positive_count"] = s["positive_count"]
+    product[0]["negative_count"] = s["negative_count"]
+    product[0]["sentiment_score"] = s["sentiment_score"]
     return {"product": product[0], "reviews": reviews, "aspects": aspects}
 
 # ---------- Search ----------
@@ -423,15 +425,15 @@ def product_details(request: Request, product_id: str):
 def search_products(request: Request, q: str = Query(..., min_length=2)):
     params = {
         "or": f"(brand.ilike.*{q}*,model_name.ilike.*{q}*)",
-        "select": "id,brand,model_name,category"
+        "select": "id,brand,model_name,category,image_url"
     }
     results = supabase_get("products", params=params)
     if results:
         product_ids = [p["id"] for p in results]
-        rankings = supabase_get("rankings", params={"product_id": f"in.({','.join(product_ids)})"})
-        rank_map = {r["product_id"]: r for r in rankings}
+        stats = compute_product_stats(product_ids)
         for p in results:
-            p["ranking"] = rank_map.get(p["id"], {})
+            s = stats.get(p["id"], {"review_count": 0, "sentiment_score": 0.5, "positive_count": 0, "negative_count": 0})
+            p["ranking"] = s
     return {"query": q, "results": results}
 
 # ---------- Brand stats ----------
@@ -556,21 +558,22 @@ def compare_products(request: Request, ids: str = Query(...)):
     if len(product_ids) < 2 or len(product_ids) > 3:
         return {"error": "Please provide 2 or 3 product IDs"}
     products_data = []
+    stats = compute_product_stats(product_ids)
     for pid in product_ids:
         product = supabase_get("products", params={"id": f"eq.{pid}"})
         if not product:
             continue
-        ranking = supabase_get("rankings", params={"product_id": f"eq.{pid}"})
         aspects = supabase_get("product_aspects", params={"product_id": f"eq.{pid}"})
         pros = [a for a in aspects if a["sentiment"] == "positive"][:3]
         cons = [a for a in aspects if a["sentiment"] == "negative"][:3]
+        s = stats.get(pid, {"positive_count": 0, "negative_count": 0, "sentiment_score": None})
         products_data.append({
             "id": pid,
             "brand": product[0]["brand"],
             "model": product[0]["model_name"],
-            "sentiment_score": ranking[0]["sentiment_score"] if ranking else None,
-            "positive_count": ranking[0]["positive_count"] if ranking else 0,
-            "negative_count": ranking[0]["negative_count"] if ranking else 0,
+            "sentiment_score": s.get("sentiment_score"),
+            "positive_count": s["positive_count"],
+            "negative_count": s["negative_count"],
             "price": product[0].get("amazon_price"),
             "image_url": product[0].get("image_url"),
             "pros": [{"aspect": p["aspect_name"], "count": p["positive_count"]} for p in pros],
@@ -586,7 +589,7 @@ def get_trend(request: Request, product_id: str, months: int = 12):
     history = supabase_get("sentiment_history", params={"product_id": f"eq.{product_id}", "order": "date.asc", "limit": months})
     return {"product_id": product_id, "history": history}
 
-# ---------- User review submission (unchanged) ----------
+# ---------- User review submission ----------
 class UserReview(BaseModel):
     product_id: str
     username: str
@@ -604,15 +607,13 @@ def submit_user_review(request: Request, review: UserReview):
     resp = supabase_post("user_reviews", data)
     if resp is None:
         return {"error": "Failed to submit review"}
-    # Invalidate relevant caches so new products/categories appear immediately
+    # Invalidate caches so new products/categories appear immediately
     if redis_client:
-        for key in redis_client.scan_iter("rankings:*"):
-            redis_client.delete(key)
         redis_client.delete("categories")
         redis_client.delete("filters")
     return {"message": "Review submitted, awaiting verification"}
 
-# ---------- NEW: Dynamic filters ----------
+# ---------- Dynamic filters ----------
 @app.get("/filters")
 @limiter.limit("100/minute")
 def get_filters(request: Request):
@@ -661,7 +662,7 @@ def get_filters(request: Request):
     cache_set(cache_key, result, ttl=60)
     return result
 
-# ---------- NEW: Recent activity feed ----------
+# ---------- Recent activity feed ----------
 @app.get("/recent_activity")
 @limiter.limit("100/minute")
 def recent_activity(request: Request, limit: int = 5):
@@ -676,7 +677,7 @@ def recent_activity(request: Request, limit: int = 5):
         r["snippet"] = (r["verbatim"][:120] + "...") if len(r["verbatim"]) > 120 else r["verbatim"]
     return {"activity": reviews}
 
-# ---------- NEW: User voting (upvote/downvote) ----------
+# ---------- User voting (upvote/downvote) ----------
 @app.post("/vote")
 @limiter.limit("50/minute")
 async def vote_review(request: Request):
@@ -700,7 +701,7 @@ async def vote_review(request: Request):
     new_score = updated[0]["helpful_score"] if updated else 0
     return {"message": "Vote recorded", "new_score": new_score}
 
-# ---------- NEW: Review of the week ----------
+# ---------- Review of the week ----------
 @app.get("/review_of_week")
 @limiter.limit("100/minute")
 def review_of_week(request: Request):

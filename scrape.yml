@@ -28,4 +28,3 @@ jobs:
         run: |
           python full_pipeline_groq.py
           python store_reviews_simple.py
-          python update_rankings_simple.py
