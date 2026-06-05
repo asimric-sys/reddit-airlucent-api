@@ -51,7 +51,7 @@ PUBLIC_READ_PATHS = {
     "/", "/widget.html", "/debug/routes",
     "/rankings", "/product/", "/search", "/brands", "/categories",
     "/usecase/", "/compare", "/trend/", "/filters", "/recent_activity", "/review_of_week",
-    "/admin/backfill-images", "/admin/uncategorized",
+    "/admin/backfill-images", "/admin/backfill-affiliates", "/admin/uncategorized",
 }
 
 # Endpoints that mutate state — API key required to prevent spam/abuse.
@@ -844,6 +844,68 @@ def admin_backfill_images(request: Request, limit: int = 10, offset: int = 0):
         except Exception:
             results["error"] += 1
         time.sleep(1)
+
+    return results
+
+
+# ---------- Admin: backfill Amazon affiliate links ----------
+@app.get("/admin/backfill-affiliates")
+def admin_backfill_affiliates(request: Request, limit: int = 10, offset: int = 0):
+    """Find Amazon ASINs for products without affiliate_url using DuckDuckGo.
+
+    Searches DDG for '{brand} {model} amazon', extracts the ASIN from
+    amazon.com/dp/{ASIN} links, and saves affiliate_url to Supabase.
+
+    Usage: GET /admin/backfill-affiliates?limit=20&offset=0
+    """
+    import re
+
+    products = supabase_get("products", params={
+        "select": "id,brand,model_name,affiliate_url",
+        "limit": 1000,
+    })
+    if not products:
+        return {"processed": 0, "remaining": 0, "message": "No products"}
+
+    # Filter: no affiliate_url if null OR empty string
+    products = [p for p in products if not p.get("affiliate_url")]
+    if not products:
+        return {"processed": 0, "remaining": 0, "message": "All products have affiliate links"}
+
+    batch = products[offset:offset + limit]
+    if not batch:
+        return {"processed": 0, "remaining": max(0, len(products) - offset), "message": "Offset past end"}
+
+    AMAZON_TAG = os.getenv("AMAZON_ASSOCIATE_TAG", "flawlesscar-20")
+    results = {"success": 0, "no_asin": 0, "error": 0, "total_in_batch": len(batch), "remaining": max(0, len(products) - offset - len(batch))}
+    dp_pattern = re.compile(r"/dp/([A-Z0-9]{10})")
+
+    for prod in batch:
+        pid = prod["id"]
+        brand = prod.get("brand", "")
+        model = prod.get("model_name", "")
+        query = f"{brand} {model} amazon"
+        try:
+            with DDGS() as ddgs:
+                search_results = list(ddgs.text(query, max_results=5))
+                asin = None
+                for r in search_results:
+                    url = r.get("href", "")
+                    m = dp_pattern.search(url)
+                    if m:
+                        asin = m.group(1)
+                        break
+                if asin:
+                    affiliate_url = f"https://www.amazon.com/dp/{asin}?tag={AMAZON_TAG}"
+                    ok = supabase_patch(f"products?id=eq.{pid}", {"affiliate_url": affiliate_url, "amazon_asin": asin})
+                    if ok:
+                        results["success"] += 1
+                    else:
+                        results["error"] += 1
+                else:
+                    results["no_asin"] += 1
+        except Exception:
+            results["error"] += 1
 
     return results
 
