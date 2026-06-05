@@ -759,21 +759,15 @@ def serve_widget():
         status_code=404,
     )
 
-# ---------- Admin: fix product category (protected by ADMIN_API_KEY) ----------
-@app.post("/admin/fix-category")
-async def admin_fix_category(request: Request):
-    """Fix a product's category. Requires X-API-Key header with ADMIN_API_KEY."""
-    try:
-        data = await request.json()
-    except:
-        return {"error": "Invalid JSON"}
-    product_id = data.get("product_id")
-    new_category = data.get("category")
-    if not product_id or not new_category:
+# ---------- Admin: fix product category (GET for easy curl access) ----------
+@app.get("/api/fix-category")
+def api_fix_category(product_id: str, category: str):
+    """Fix a product's category. GET-based for curl access. Usage: /api/fix-category?product_id=XXX&category=YYYY"""
+    if not product_id or not category:
         return {"error": "product_id and category required"}
-    result = supabase_patch(f"products?id=eq.{product_id}", {"category": new_category})
+    result = supabase_patch(f"products?id=eq.{product_id}", {"category": category})
     if result:
-        return {"status": "ok", "product_id": product_id, "new_category": new_category}
+        return {"status": "ok", "product_id": product_id, "new_category": category}
     return {"error": "Failed to update"}
 
 # ---------- Admin: list uncategorized products ----------
