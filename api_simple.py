@@ -275,23 +275,27 @@ def supabase_patch(endpoint, data):
 # ---------- Helper: compute product stats from reviews (no rankings table) ----------
 def compute_product_stats(product_ids: list) -> dict:
     """Return a dict of {product_id: {positive_count, negative_count, review_count, sentiment_score}}
-    computed live from the reviews table."""
+    computed live from the reviews table. Batches queries to avoid Supabase URL length limits."""
     if not product_ids:
         return {}
-    reviews = supabase_get("reviews", params={"product_id": f"in.({','.join(product_ids)})", "select": "product_id,sentiment"})
     stats = {}
-    for r in reviews:
-        pid = r["product_id"]
-        if pid not in stats:
-            stats[pid] = {"positive_count": 0, "negative_count": 0, "neutral_count": 0, "review_count": 0}
-        stats[pid]["review_count"] += 1
-        sent = r.get("sentiment", "neutral")
-        if sent == "positive":
-            stats[pid]["positive_count"] += 1
-        elif sent == "negative":
-            stats[pid]["negative_count"] += 1
-        else:
-            stats[pid]["neutral_count"] += 1
+    # Batch into chunks of 100 to keep URL under Supabase limits
+    batch_size = 100
+    for i in range(0, len(product_ids), batch_size):
+        batch = product_ids[i:i + batch_size]
+        reviews = supabase_get("reviews", params={"product_id": f"in.({','.join(batch)})", "select": "product_id,sentiment"})
+        for r in reviews:
+            pid = r["product_id"]
+            if pid not in stats:
+                stats[pid] = {"positive_count": 0, "negative_count": 0, "neutral_count": 0, "review_count": 0}
+            stats[pid]["review_count"] += 1
+            sent = r.get("sentiment", "neutral")
+            if sent == "positive":
+                stats[pid]["positive_count"] += 1
+            elif sent == "negative":
+                stats[pid]["negative_count"] += 1
+            else:
+                stats[pid]["neutral_count"] += 1
     for pid in stats:
         s = stats[pid]
         total = s["positive_count"] + s["negative_count"]
