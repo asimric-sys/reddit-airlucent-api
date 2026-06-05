@@ -1499,11 +1499,23 @@
     if (activityInterval) clearInterval(activityInterval);
     activityInterval = setInterval(() => {
         loadRecentActivity();
-        loadReviewOfWeek();
+        loadGrid();
         loadRecentlyAddedProducts();
         loadCategories();
+        loadFilters();
         updateLastUpdated();
     }, 30000);
+
+    // Show "last updated" timestamp in header
+    const headerSubtitle = document.querySelector('.header-subtitle');
+    if (headerSubtitle) {
+        const refreshEl = document.createElement('span');
+        refreshEl.id = 'lastUpdated';
+        refreshEl.style.marginLeft = '12px';
+        refreshEl.style.fontSize = '0.75rem';
+        refreshEl.style.opacity = '0.7';
+        headerSubtitle.appendChild(refreshEl);
+    }
 </script>
 </body>
 </html>

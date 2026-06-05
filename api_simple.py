@@ -339,10 +339,18 @@ def get_rankings(
         ranking_params["product_id"] = f"in.({','.join(product_ids)})"
 
     rankings = supabase_get("rankings", params=ranking_params)
+    ranked_product_ids = set(r["product_id"] for r in rankings)
+
+    # Build list of product IDs we expect to see
+    expected_ids = product_ids  # None means "all products"
+    if expected_ids is None:
+        # No category/spec filter — fetch ALL products from DB so new
+        # unranked products still appear in the response.
+        all_products = supabase_get("products", params={"select": "id"})
+        expected_ids = [p["id"] for p in all_products] if all_products else []
 
     # Determine which products have no ranking entry yet
-    ranked_product_ids = set(r["product_id"] for r in rankings)
-    unranked_ids = [pid for pid in (product_ids or []) if pid not in ranked_product_ids]
+    unranked_ids = [pid for pid in expected_ids if pid not in ranked_product_ids]
 
     # Build default ranking stubs for unranked products so they still appear
     if unranked_ids:
