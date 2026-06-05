@@ -759,6 +759,43 @@ def serve_widget():
         status_code=404,
     )
 
+# ---------- Admin: fix product category (protected by ADMIN_API_KEY) ----------
+@app.post("/admin/fix-category")
+async def admin_fix_category(request: Request):
+    """Fix a product's category. Requires X-API-Key header with ADMIN_API_KEY."""
+    try:
+        data = await request.json()
+    except:
+        return {"error": "Invalid JSON"}
+    product_id = data.get("product_id")
+    new_category = data.get("category")
+    if not product_id or not new_category:
+        return {"error": "product_id and category required"}
+    result = supabase_patch(f"products?id=eq.{product_id}", {"category": new_category})
+    if result:
+        return {"status": "ok", "product_id": product_id, "new_category": new_category}
+    return {"error": "Failed to update"}
+
+# ---------- Admin: list uncategorized products ----------
+@app.get("/admin/uncategorized")
+def admin_uncategorized(request: Request):
+    """List products that seem miscategorized (brand/category mismatch). Requires X-API-Key."""
+    products = supabase_get("products", params={"select": "id,brand,model_name,category", "limit": 1000})
+    # Known air purifier brands that should not be in vacuum-cleaner
+    air_purifier_brands = ["shark", "winix", "levoit", "coway", "blueair", "honeywell", "dyson", "molekule"]
+    issues = []
+    for p in products:
+        brand = (p.get("brand") or "").lower()
+        cat = p.get("category") or ""
+        if cat == "vacuum-cleaner" and brand in air_purifier_brands:
+            # Check if model name suggests it's actually an air purifier
+            model = (p.get("model_name") or "").lower()
+            if "air" in model or "purifier" in model or "hepa" in model:
+                issues.append({"id": p["id"], "brand": p["brand"], "model": p["model_name"], "current": cat, "suggested": "air-purifier"})
+        if cat == "vacuum-cleaner" and "router" in (p.get("model_name") or "").lower():
+            issues.append({"id": p["id"], "brand": p["brand"], "model": p["model_name"], "current": cat, "suggested": "wifi-router"})
+    return {"issues": issues, "count": len(issues)}
+
 # ---------- Debug routes ----------
 @app.get("/debug/routes")
 def list_routes():
